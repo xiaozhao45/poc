@@ -4,7 +4,7 @@
 
 use crate::err::Res;
 use crate::hash::Hash;
-use crate::object::{put_str, put_u64, Cursor};
+use crate::object::{Cursor, put_str, put_u64};
 use rust_i18n::t;
 
 pub const EVT_INIT: u8 = 1; // proj 初始化（建立 main）
@@ -97,7 +97,11 @@ impl Event {
         let time_ms = c.u64()?;
         let kind = c.byte()?;
         let compose = c.str()?;
-        let op = if c.byte()? == 1 { Some(c.hash()?) } else { None };
+        let op = if c.byte()? == 1 {
+            Some(c.hash()?)
+        } else {
+            None
+        };
         let author = c.str()?;
         let msg = c.str()?;
         let detail = c.str()?;
@@ -118,12 +122,8 @@ impl Event {
     /// 无 op 的事件不留占位段；kind 列按显示宽度对齐（en 最宽 new-stack = 9）。
     pub fn line(&self, seq: u64) -> String {
         use crate::render::pad_disp;
-        use crate::theme::{paint, Token};
-        let mut s = format!(
-            "  #{:<4}  {}  ",
-            seq,
-            crate::render::fmt_time(self.time_ms)
-        );
+        use crate::theme::{Token, paint};
+        let mut s = format!("  #{:<4}  {}  ", seq, crate::render::fmt_time(self.time_ms));
         s.push_str(&pad_disp(&kind_label(self.kind), 9));
         if let Some(h) = self.op {
             s.push_str(&format!("  {}", paint(Token::Id, h.short())));

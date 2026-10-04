@@ -202,8 +202,8 @@ fn build_cmd() -> clap::Command {
         .unwrap_or_else(|| "poc".into());
     let mut cmd = PocCli::command();
     cmd.set_bin_name(bin);
-    let cmd = cmd.after_help(rust_i18n::t!("help.after").to_string());
-    cmd
+
+    cmd.after_help(rust_i18n::t!("help.after").to_string())
 }
 
 fn wrap(r: Res<()>) -> ExitCode {
@@ -262,10 +262,11 @@ pub fn fpoc_main() -> ExitCode {
     crate::ui::restore_sigpipe();
     let args = argv();
     // 顶层 help/version 直接交给 poc_run 的拦截（fpoc 下程序名随 argv[0]）
-    if let Some(first) = args.first().map(|s| s.as_str()) {
-        if matches!(first, "-h" | "--help" | "-V" | "--version") || (first == "help" && args.len() == 1) {
-            return wrap(poc_run(&args));
-        }
+    if let Some(first) = args.first().map(|s| s.as_str())
+        && (matches!(first, "-h" | "--help" | "-V" | "--version")
+            || (first == "help" && args.len() == 1))
+    {
+        return wrap(poc_run(&args));
     }
     let (_, n) = match split_globals(&args) {
         Ok(x) => x,
@@ -313,7 +314,10 @@ fn poc_run(args: &[String]) -> Res<()> {
         if g.gc {
             let ctx = Ctx::open(g)?;
             let (b, t, o) = ctx.store.gc_run()?;
-            println!("{}", rust_i18n::t!("gc.done", blobs = b, trees = t, ops = o));
+            println!(
+                "{}",
+                rust_i18n::t!("gc.done", blobs = b, trees = t, ops = o)
+            );
             return Ok(());
         }
         if g.commit {
@@ -338,8 +342,9 @@ fn poc_run(args: &[String]) -> Res<()> {
 
     // proj 不要求已在项目内，先于 Ctx 分派
     if rest[0] == "proj" {
-        let cli = PocCli::try_parse_from(std::iter::once("poc".to_string()).chain(rest.iter().cloned()))
-            .map_err(|e| PocError::Usage(e.to_string()))?;
+        let cli =
+            PocCli::try_parse_from(std::iter::once("poc".to_string()).chain(rest.iter().cloned()))
+                .map_err(|e| PocError::Usage(e.to_string()))?;
         let PocCmd::Proj { new_name, path } = cli.cmd else {
             unreachable!()
         };
@@ -349,7 +354,10 @@ fn poc_run(args: &[String]) -> Res<()> {
     let ctx = Ctx::open(g)?;
     if g.gc {
         let (b, t, o) = ctx.store.gc_run()?;
-        println!("{}", rust_i18n::t!("gc.done", blobs = b, trees = t, ops = o));
+        println!(
+            "{}",
+            rust_i18n::t!("gc.done", blobs = b, trees = t, ops = o)
+        );
     }
     // 带命令的 --commit/--cancel：先处理步骤，再执行命令（"提交步骤结果，进入下一步"）
     if g.commit {
@@ -359,8 +367,9 @@ fn poc_run(args: &[String]) -> Res<()> {
         cmds::step_cancel(&ctx)?;
     }
 
-    let cli = PocCli::try_parse_from(std::iter::once("poc".to_string()).chain(rest.iter().cloned()))
-        .map_err(|e| PocError::Usage(e.to_string()))?;
+    let cli =
+        PocCli::try_parse_from(std::iter::once("poc".to_string()).chain(rest.iter().cloned()))
+            .map_err(|e| PocError::Usage(e.to_string()))?;
     match cli.cmd {
         PocCmd::Proj { .. } => unreachable!(),
         PocCmd::Opt {

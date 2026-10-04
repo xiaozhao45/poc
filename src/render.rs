@@ -10,7 +10,7 @@ use rust_i18n::t;
 use crate::hash::Hash;
 use crate::object::Op;
 use crate::step::Step;
-use crate::theme::{paint, Token};
+use crate::theme::{Token, paint};
 
 pub fn fmt_time(ms: u64) -> String {
     match jiff::Timestamp::from_millisecond(ms as i64) {
@@ -42,11 +42,7 @@ fn char_width(c: char) -> usize {
         | 0xFE30..=0xFE6F
         | 0xFF00..=0xFF60
         | 0xFFE0..=0xFFE6);
-    if wide {
-        2
-    } else {
-        1
-    }
+    if wide { 2 } else { 1 }
 }
 
 /// 按显示宽度右侧补空格。
@@ -99,13 +95,22 @@ pub fn pooled_line(pooled: &[Hash]) -> String {
 pub fn counts_summary(added: usize, removed: usize, modified: usize) -> String {
     let mut parts: Vec<String> = Vec::new();
     if added > 0 {
-        parts.push(paint(Token::Added, t!("status.n_added", n = added).to_string()));
+        parts.push(paint(
+            Token::Added,
+            t!("status.n_added", n = added).to_string(),
+        ));
     }
     if removed > 0 {
-        parts.push(paint(Token::Removed, t!("status.n_deleted", n = removed).to_string()));
+        parts.push(paint(
+            Token::Removed,
+            t!("status.n_deleted", n = removed).to_string(),
+        ));
     }
     if modified > 0 {
-        parts.push(paint(Token::Updated, t!("status.n_updated", n = modified).to_string()));
+        parts.push(paint(
+            Token::Updated,
+            t!("status.n_updated", n = modified).to_string(),
+        ));
     }
     parts.join(", ")
 }
@@ -141,13 +146,7 @@ pub fn show_stack(name: &str, base: &Hash, head: &Hash, ops: &[(Hash, Op)]) -> S
 }
 
 /// `poc show -c`：每个 compose 一个块，`note` 描述其栈况。
-pub fn compose_block(
-    name: &str,
-    base: &Hash,
-    head: &Hash,
-    current: bool,
-    note: &str,
-) -> String {
+pub fn compose_block(name: &str, base: &Hash, head: &Hash, current: bool, note: &str) -> String {
     format!(
         "{}\n{}  {}\n",
         compose_line(name, current),
@@ -206,7 +205,8 @@ pub fn step_section(s: &Step, root: &Path) -> String {
         crate::step::kind_label(s.kind)
     ));
     let swap_root = crate::step::swap_root(root);
-    let mut rows: Vec<(String, String)> = vec![(t!("step.operations").to_string(), s.ids.join(" "))];
+    let mut rows: Vec<(String, String)> =
+        vec![(t!("step.operations").to_string(), s.ids.join(" "))];
     if !s.message.is_empty() {
         rows.push((t!("step.message").to_string(), s.message.clone()));
     }

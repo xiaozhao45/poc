@@ -1,5 +1,8 @@
 # P.O.C. — Project · Operation · Compose
 
+[![CI](https://github.com/xiaozhao45/poc/actions/workflows/ci.yml/badge.svg)](https://github.com/xiaozhao45/poc/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 **P.O.C.** is a userspace, fully local version control tool: a single binary with no network, no daemon, and no staging area. It maintains complete history for a directory just like Git does — but the history model is different: history is a **stack of freely reorderable Operations**, not a chain of commits.
 
 ## Why P.O.C.
@@ -25,7 +28,7 @@
 Build from source with Rust 1.90 or newer:
 
 ```console
-$ git clone <this repository>
+$ git clone https://github.com/xiaozhao45/poc.git
 $ cd poc
 $ cargo install --path .
 ```

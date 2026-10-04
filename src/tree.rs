@@ -3,11 +3,11 @@
 use std::collections::BTreeMap;
 use std::path::Path;
 
+use crate::TAG_BLOB;
 use crate::db::Store;
 use crate::err::{PocError, Res};
 use crate::hash::Hash;
 use crate::object::{Mode, Tree};
-use crate::TAG_BLOB;
 
 #[derive(Debug, Clone)]
 pub struct WorkItem {
@@ -108,9 +108,7 @@ pub fn tree_of(map: &WorkMap) -> Tree {
 }
 
 pub fn blob_map(map: &WorkMap) -> BTreeMap<Hash, Vec<u8>> {
-    map.iter()
-        .map(|(_, w)| (hash_of(w), w.data.clone()))
-        .collect()
+    map.values().map(|w| (hash_of(w), w.data.clone())).collect()
 }
 
 /// 磁盘内容（mode, hash）与 head 树是否完全一致 —— 工作区干净判定。
@@ -145,16 +143,16 @@ pub fn materialize(root: &Path, tree: &Tree, store: &Store, current: &WorkMap) -
         if *mode == Mode::Symlink {
             #[cfg(unix)]
             {
-                if let Ok(cur) = std::fs::read_link(&full) {
-                    if cur.as_os_str().to_string_lossy() == String::from_utf8_lossy(&data) {
-                        write = false;
-                    }
+                if let Ok(cur) = std::fs::read_link(&full)
+                    && cur.as_os_str().to_string_lossy() == String::from_utf8_lossy(&data)
+                {
+                    write = false;
                 }
             }
-        } else if let Ok(cur) = std::fs::read(&full) {
-            if cur == data {
-                write = false;
-            }
+        } else if let Ok(cur) = std::fs::read(&full)
+            && cur == data
+        {
+            write = false;
         }
         if !write {
             continue;

@@ -9,12 +9,12 @@ use anstream::println;
 use rust_i18n::t;
 
 use crate::cli::Globals;
-use crate::theme::{paint, Token};
-use crate::cmds::{resolve_op, Ctx};
+use crate::cmds::{Ctx, resolve_op};
 use crate::err::{PocError, Res};
 use crate::hash::Hash;
-use crate::log::{Event, EVT_DESTROY, EVT_PURGE, EVT_REMOVE, EVT_RESTORE, POOL_SCOPE};
+use crate::log::{EVT_DESTROY, EVT_PURGE, EVT_REMOVE, EVT_RESTORE, Event, POOL_SCOPE};
 use crate::render;
+use crate::theme::{Token, paint};
 
 /// 销毁类动词：dpoc.conf 默认 deny，未列出即拒绝。
 const DESTROY_VERBS: &[&str] = &[
@@ -53,10 +53,10 @@ fn verb_allowed(verb: &str) -> bool {
         if line.is_empty() || line.starts_with('#') {
             continue;
         }
-        if let Some((k, v)) = line.split_once('=') {
-            if k.trim() == verb {
-                return v.trim().eq_ignore_ascii_case("allow");
-            }
+        if let Some((k, v)) = line.split_once('=')
+            && k.trim() == verb
+        {
+            return v.trim().eq_ignore_ascii_case("allow");
         }
     }
     false
@@ -64,16 +64,14 @@ fn verb_allowed(verb: &str) -> bool {
 
 fn require_enabled(ctx: &Ctx) -> Res<()> {
     if ctx.store.meta_get("dp.enabled")?.as_deref() != Some("1") {
-        return Err(PocError::Msg(
-            t!("dp.not_enabled").to_string(),));
+        return Err(PocError::Msg(t!("dp.not_enabled").to_string()));
     }
     Ok(())
 }
 
 fn require_tty() -> Res<()> {
     if !crate::ui::stdout_is_tty() {
-        return Err(PocError::Msg(
-            t!("dp.not_tty").to_string(),));
+        return Err(PocError::Msg(t!("dp.not_tty").to_string()));
     }
     Ok(())
 }
@@ -140,7 +138,9 @@ pub fn run(args: &[String]) -> Res<()> {
             print_help();
             Ok(())
         }
-        other => Err(PocError::Usage(t!("dp.unknown_verb", verb = other).to_string())),
+        other => Err(PocError::Usage(
+            t!("dp.unknown_verb", verb = other).to_string(),
+        )),
     }
 }
 
@@ -179,11 +179,7 @@ fn disable() -> Res<()> {
 }
 
 fn in_attic(ctx: &Ctx, h: &Hash) -> Res<bool> {
-    Ok(ctx
-        .store
-        .attic_list()?
-        .iter()
-        .any(|(a, _, _)| a == h))
+    Ok(ctx.store.attic_list()?.iter().any(|(a, _, _)| a == h))
 }
 
 fn opt_destroy(ctx: &Ctx, ids: &[String]) -> Res<()> {
@@ -193,13 +189,18 @@ fn opt_destroy(ctx: &Ctx, ids: &[String]) -> Res<()> {
     require_enabled(ctx)?;
     require_tty()?;
     if !verb_allowed("opt-destroy") {
-        return Err(PocError::Msg(t!("dp.verb_denied", verb = "opt-destroy").to_string()));
+        return Err(PocError::Msg(
+            t!("dp.verb_denied", verb = "opt-destroy").to_string(),
+        ));
     }
     let pool: HashSet<Hash> = ctx.store.pool_list()?.into_iter().map(|(h, _)| h).collect();
     for s in ids {
         let (h, op) = resolve_op(ctx, s)?;
         if in_attic(ctx, &h)? {
-            println!("{}", t!("dp.already_attic", id = paint(Token::Id, h.short())));
+            println!(
+                "{}",
+                t!("dp.already_attic", id = paint(Token::Id, h.short()))
+            );
             continue;
         }
         if !pool.contains(&h) {
@@ -217,8 +218,16 @@ fn opt_destroy(ctx: &Ctx, ids: &[String]) -> Res<()> {
             &op.msg,
             now_ms(),
         );
-        ctx.store.destroy_from_pool(&h, "自由池", "opt-destroy", &ev)?;
-        println!("{}", t!("dp.destroyed", id = paint(Token::Id, h.short()), msg = op.msg));
+        ctx.store
+            .destroy_from_pool(&h, "自由池", "opt-destroy", &ev)?;
+        println!(
+            "{}",
+            t!(
+                "dp.destroyed",
+                id = paint(Token::Id, h.short()),
+                msg = op.msg
+            )
+        );
     }
     Ok(())
 }
@@ -232,12 +241,12 @@ fn switch_current_away(ctx: &Ctx, removed: &str) -> Res<()> {
             ctx.store.meta_set("current", n)?;
             println!("{}", t!("dp.current_switched", name = n));
             // 不自动物化（可能覆盖未记录内容）；不一致时明确告知
-            if let Some(st) = ctx.store.compose_get(n)? {
-                if let Some(t) = ctx.store.get_tree(&st.head)? {
-                    let work = crate::tree::scan(&ctx.root)?;
-                    if !crate::tree::disk_matches_tree(&work, &t) {
-                        println!("{}", t!("dp.current_dirty", name = n));
-                    }
+            if let Some(st) = ctx.store.compose_get(n)?
+                && let Some(t) = ctx.store.get_tree(&st.head)?
+            {
+                let work = crate::tree::scan(&ctx.root)?;
+                if !crate::tree::disk_matches_tree(&work, &t) {
+                    println!("{}", t!("dp.current_dirty", name = n));
                 }
             }
         }
@@ -256,7 +265,9 @@ fn compose_remove(ctx: &Ctx, names: &[String]) -> Res<()> {
     require_enabled(ctx)?;
     require_tty()?;
     if !verb_allowed("compose-remove") {
-        return Err(PocError::Msg(t!("dp.verb_denied", verb = "compose-remove").to_string()));
+        return Err(PocError::Msg(
+            t!("dp.verb_denied", verb = "compose-remove").to_string(),
+        ));
     }
     for name in names {
         let st = ctx
@@ -288,7 +299,9 @@ fn compose_destroy(ctx: &Ctx, names: &[String]) -> Res<()> {
     require_enabled(ctx)?;
     require_tty()?;
     if !verb_allowed("compose-destroy") {
-        return Err(PocError::Msg(t!("dp.verb_denied", verb = "compose-destroy").to_string()));
+        return Err(PocError::Msg(
+            t!("dp.verb_denied", verb = "compose-destroy").to_string(),
+        ));
     }
     for name in names {
         let st = ctx
@@ -330,9 +343,24 @@ fn restore(ctx: &Ctx, ids: &[String]) -> Res<()> {
             println!("{}", t!("dp.not_in_attic", id = h.short()));
             continue;
         }
-        let ev = Event::new(EVT_RESTORE, POOL_SCOPE, Some(h), "", "restored from attic", "", now_ms());
+        let ev = Event::new(
+            EVT_RESTORE,
+            POOL_SCOPE,
+            Some(h),
+            "",
+            "restored from attic",
+            "",
+            now_ms(),
+        );
         ctx.store.restore_to_pool(&h, &ev)?;
-        println!("{}", t!("dp.restored", id = paint(Token::Id, h.short()), msg = op.msg));
+        println!(
+            "{}",
+            t!(
+                "dp.restored",
+                id = paint(Token::Id, h.short()),
+                msg = op.msg
+            )
+        );
     }
     Ok(())
 }
@@ -344,7 +372,9 @@ fn attic_purge(ctx: &Ctx, ids: &[String]) -> Res<()> {
     require_enabled(ctx)?;
     require_tty()?;
     if !verb_allowed("attic-purge") {
-        return Err(PocError::Msg(t!("dp.verb_denied", verb = "attic-purge").to_string()));
+        return Err(PocError::Msg(
+            t!("dp.verb_denied", verb = "attic-purge").to_string(),
+        ));
     }
     for s in ids {
         let (h, _) = resolve_op(ctx, s)?;
@@ -389,9 +419,9 @@ fn verify(ctx: &Ctx) -> Res<()> {
             return Err(PocError::Msg(format!("op 哈希不符：{}", h.short())));
         }
         for t in [op.pre, op.post] {
-            ctx.store
-                .get_tree(&t)?
-                .ok_or_else(|| PocError::Msg(t!("dp.verify_missing_tree", id = h.short()).to_string()))?;
+            ctx.store.get_tree(&t)?.ok_or_else(|| {
+                PocError::Msg(t!("dp.verify_missing_tree", id = h.short()).to_string())
+            })?;
         }
     }
     for name in ctx.store.compose_names()? {
@@ -400,14 +430,14 @@ fn verify(ctx: &Ctx) -> Res<()> {
             .compose_get(&name)?
             .ok_or_else(|| PocError::Msg("数据不一致".into()))?;
         for t in [st.base, st.head] {
-            ctx.store
-                .get_tree(&t)?
-                .ok_or_else(|| PocError::Msg(t!("dp.verify_compose_tree", name = name).to_string()))?;
+            ctx.store.get_tree(&t)?.ok_or_else(|| {
+                PocError::Msg(t!("dp.verify_compose_tree", name = name).to_string())
+            })?;
         }
         for h in &st.ops {
-            ctx.store
-                .get_op(h)?
-                .ok_or_else(|| PocError::Msg(t!("dp.verify_compose_op", name = name).to_string()))?;
+            ctx.store.get_op(h)?.ok_or_else(|| {
+                PocError::Msg(t!("dp.verify_compose_op", name = name).to_string())
+            })?;
         }
     }
     let seq: u64 = ctx
@@ -426,9 +456,6 @@ fn verify(ctx: &Ctx) -> Res<()> {
     if ctx.store.log_list()?.len() as u64 != lseq {
         return Err(PocError::Msg(t!("dp.verify_log_gap").to_string()));
     }
-    println!(
-        "{}",
-        t!("dp.verify_ok", n = ops.len())
-    );
+    println!("{}", t!("dp.verify_ok", n = ops.len()));
     Ok(())
 }

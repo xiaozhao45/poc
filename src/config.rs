@@ -50,20 +50,20 @@ pub fn git_global_identity() -> Option<Identity> {
 
 /// 单键解析：本仓库 meta → $GIT_AUTHOR_* → Git 全局。
 pub fn resolve_key(store: &Store, key: &str) -> Res<Option<(String, Source)>> {
-    if let Some(v) = store.meta_get(key)? {
-        if !v.trim().is_empty() {
-            return Ok(Some((v, Source::Repo)));
-        }
+    if let Some(v) = store.meta_get(key)?
+        && !v.trim().is_empty()
+    {
+        return Ok(Some((v, Source::Repo)));
     }
     let env_key = match key {
         USER_NAME => "GIT_AUTHOR_NAME",
         USER_EMAIL => "GIT_AUTHOR_EMAIL",
         _ => return Ok(None),
     };
-    if let Ok(v) = std::env::var(env_key) {
-        if !v.trim().is_empty() {
-            return Ok(Some((v, Source::Env)));
-        }
+    if let Ok(v) = std::env::var(env_key)
+        && !v.trim().is_empty()
+    {
+        return Ok(Some((v, Source::Env)));
     }
     if let Some(id) = git_global_identity() {
         let v = match key {
@@ -80,9 +80,8 @@ pub fn resolve_key(store: &Store, key: &str) -> Res<Option<(String, Source)>> {
 
 /// name 必有、email 可空。返回（身份, name 的来源）。
 pub fn resolve_identity(store: &Store) -> Res<(Identity, Source)> {
-    let (name, src) = resolve_key(store, USER_NAME)?.ok_or_else(|| {
-        PocError::Config(t!("config.err_missing_name").to_string())
-    })?;
+    let (name, src) = resolve_key(store, USER_NAME)?
+        .ok_or_else(|| PocError::Config(t!("config.err_missing_name").to_string()))?;
     let email = resolve_key(store, USER_EMAIL)?
         .map(|(v, _)| v)
         .unwrap_or_default();

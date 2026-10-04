@@ -43,11 +43,7 @@ pub fn page(no_pager: bool, text: &str) {
 }
 
 fn default_editor() -> &'static str {
-    if cfg!(windows) {
-        "notepad"
-    } else {
-        "vi"
-    }
+    if cfg!(windows) { "notepad" } else { "vi" }
 }
 
 pub fn open_editor(path: &Path) -> Res<()> {

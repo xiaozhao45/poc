@@ -80,6 +80,9 @@ pub fn op_id(o: &Op) -> Hash {
     Hash::compute(TAG_OP, &o.encode())
 }
 
+/// 审计行：(seq, 动词, 涉及对象 ids, 时间)。
+pub type AuditRow = (u64, String, Vec<Hash>, u64);
+
 pub struct Store {
     pub db: Database,
     pub root: PathBuf,
@@ -459,7 +462,7 @@ impl Store {
         Ok(seq)
     }
 
-    pub fn audit_list(&self) -> Res<Vec<(u64, String, Vec<Hash>, u64)>> {
+    pub fn audit_list(&self) -> Res<Vec<AuditRow>> {
         let rtx = self.db.begin_read()?;
         let t = rtx.open_table(T_AUDIT)?;
         let mut out = Vec::new();
@@ -577,6 +580,7 @@ impl Store {
     }
 
     /// `opt --amend`：新 op 替换栈顶，被替换者转入自由池（非破坏原则）。
+    #[allow(clippy::too_many_arguments)] // 与相邻事务方法（commit_rewrite 等）同构的并列参数
     pub fn amend_top(
         &self,
         compose_name: &str,

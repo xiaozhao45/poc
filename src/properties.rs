@@ -14,7 +14,7 @@ use crate::cli::Globals;
 use crate::cmds::{self, Ctx, OptArgs};
 use crate::hash::Hash;
 use crate::log::Event;
-use crate::{config, db, log, tree, object, TAG_OP};
+use crate::{TAG_OP, config, db, log, object, tree};
 
 fn fixture() -> (tempfile::TempDir, Ctx) {
     // 实验目录约束：一切运行时产物只落在 /tmp/poc 之下
@@ -151,7 +151,6 @@ proptest! {
     #[test]
     fn p3_compact_preserves_head(contents in proptest::collection::vec("[a-z]{1,6}", 2..=6)) {
         let (_d, ctx) = fixture();
-        let k = contents.len();
         for (i, c) in contents.iter().enumerate() {
             record(&ctx, i, c);
         }

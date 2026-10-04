@@ -10,16 +10,16 @@ use rust_i18n::t;
 use anstream::println;
 
 use crate::config;
-use crate::db::{tree_id, ComposeState, Store};
+use crate::db::{ComposeState, Store, tree_id};
 use crate::diff::{self, diff_maps};
 use crate::err::{PocError, Res};
 use crate::hash::Hash;
 use crate::log::{
-    Event, EVT_AMEND, EVT_CMP_NEW, EVT_COMPACT, EVT_INIT, EVT_MERGE, EVT_POP, EVT_PUSH, POOL_SCOPE,
+    EVT_AMEND, EVT_CMP_NEW, EVT_COMPACT, EVT_INIT, EVT_MERGE, EVT_POP, EVT_PUSH, Event, POOL_SCOPE,
 };
 use crate::merge;
 use crate::object::{Mode, Op, Tree};
-use crate::theme::{paint, Token};
+use crate::theme::{Token, paint};
 
 /// 冲突解决回调：（merge 调用序号, 冲突路径, 带标记全文）→ 用家已定内容。
 /// 回放（`poc --commit`）时由交换文件供给；普通执行恒为 None。
@@ -59,9 +59,10 @@ fn require_current(ctx: &Ctx) -> Res<(String, ComposeState)> {
         .store
         .current_name()?
         .ok_or_else(|| PocError::Msg(t!("error.no_current_create").to_string()))?;
-    let st = ctx.store.compose_get(&name)?.ok_or_else(|| {
-        PocError::Msg(t!("error.compose_not_found", name = name).to_string())
-    })?;
+    let st = ctx
+        .store
+        .compose_get(&name)?
+        .ok_or_else(|| PocError::Msg(t!("error.compose_not_found", name = name).to_string()))?;
     Ok((name, st))
 }
 
@@ -92,7 +93,10 @@ pub fn cmd_proj(new_name: Option<String>, path: Option<String>) -> Res<()> {
     };
     let target = std::fs::canonicalize(&target)?;
     init_at(&target)?;
-    println!("{}", t!("proj.initialized", path = target.display().to_string()));
+    println!(
+        "{}",
+        t!("proj.initialized", path = target.display().to_string())
+    );
     Ok(())
 }
 
@@ -111,7 +115,15 @@ pub fn init_at(root: &Path) -> Res<Store> {
     store.init_project(
         &name,
         &empty,
-        &Event::new(EVT_INIT, "main", None, "", "proj initialized", "base = empty snapshot", now_ms()),
+        &Event::new(
+            EVT_INIT,
+            "main",
+            None,
+            "",
+            "proj initialized",
+            "base = empty snapshot",
+            now_ms(),
+        ),
     )?;
     Ok(store)
 }
@@ -158,6 +170,7 @@ pub fn cmd_opt(ctx: &Ctx, a: OptArgs) -> Res<()> {
 
 /// 冲突收尾：二进制冲突直接拒绝；其余建待办步骤（交换文件 + meta）。
 /// 输出 = 共享的步骤节渲染器；错误经 wrap 打 `error:` 前缀行。
+#[allow(clippy::too_many_arguments)] // 参数天然并列（种类/ids/守卫/待办/二进制），拆 struct 反而失真
 fn finish_conflict(
     ctx: &Ctx,
     kind: u8,
@@ -226,10 +239,16 @@ fn build_candidate(
                 }
             }
             for (p, (mode, bh)) in &head_tree.to_map() {
-                if !glob.is_match(p) {
-                    if let Some(b) = ctx.store.get_blob(bh)? {
-                        m.insert(p.clone(), WorkItem { mode: *mode, data: b });
-                    }
+                if !glob.is_match(p)
+                    && let Some(b) = ctx.store.get_blob(bh)?
+                {
+                    m.insert(
+                        p.clone(),
+                        WorkItem {
+                            mode: *mode,
+                            data: b,
+                        },
+                    );
                 }
             }
             m
@@ -265,7 +284,12 @@ fn take_message(ctx: &Ctx, given: Option<String>) -> Res<String> {
     Ok(m)
 }
 
-fn print_record_summary(ctx: &Ctx, head_map: &BTreeMap<String, (Mode, Hash)>, d: &diff::TreeDiff, candidate: &WorkMap) -> Res<()> {
+fn print_record_summary(
+    ctx: &Ctx,
+    head_map: &BTreeMap<String, (Mode, Hash)>,
+    d: &diff::TreeDiff,
+    candidate: &WorkMap,
+) -> Res<()> {
     let _ = (ctx, head_map, candidate); // hunk 计数已从前端移除；保留签名以便后续扩展
     println!(
         "{}",
@@ -346,7 +370,11 @@ pub(crate) fn cmd_opt_create(ctx: &Ctx, a: OptArgs) -> Res<()> {
     print_record_summary(ctx, &head_map, &d, &candidate)?;
     println!(
         "{}",
-        t!("record.created", id = paint(Token::Id, op_id.short()), msg = op.msg)
+        t!(
+            "record.created",
+            id = paint(Token::Id, op_id.short()),
+            msg = op.msg
+        )
     );
     if ctx.globals.verbose {
         print_file_list(&d);
@@ -409,7 +437,8 @@ pub(crate) fn cmd_opt_amend(ctx: &Ctx, a: OptArgs) -> Res<()> {
         &format!("original {} pooled", top_id.short()),
         op.time_ms,
     );
-    ctx.store.amend_top(&compose_name, &st, &op, &blobs, &tree, &top_id, &ev)?;
+    ctx.store
+        .amend_top(&compose_name, &st, &op, &blobs, &tree, &top_id, &ev)?;
     if ctx.globals.quiet {
         println!("{}", paint(Token::Id, op_id.short()));
         return Ok(());
@@ -453,9 +482,9 @@ struct StackEdit {
     new_trees: BTreeMap<Hash, Tree>,
     new_blobs: BTreeMap<Hash, Vec<u8>>,
     pool_adds: Vec<Hash>,
-    seq: usize,                                      // merge 调用计数（步骤交换文件标识）
-    pending: Vec<(u64, String, Vec<u8>)>,            // 未解决冲突（seq, 路径, 带标记全文）
-    binaries: Vec<String>,                           // 二进制冲突（不可步骤化）
+    seq: usize,                           // merge 调用计数（步骤交换文件标识）
+    pending: Vec<(u64, String, Vec<u8>)>, // 未解决冲突（seq, 路径, 带标记全文）
+    binaries: Vec<String>,                // 二进制冲突（不可步骤化）
 }
 
 impl StackEdit {
@@ -635,9 +664,7 @@ impl StackEdit {
         };
         self.seq += 1;
         if m.tree_id == self.head {
-            return Err(PocError::Msg(
-                t!("error.lift_noop").into(),
-            ));
+            return Err(PocError::Msg(t!("error.lift_noop").into()));
         }
         self.new_blobs.extend(m.blobs);
         self.new_trees.insert(m.tree_id, m.tree);
@@ -755,7 +782,7 @@ pub(crate) fn opt_lift(ctx: &Ctx, a: OptArgs, res: Option<&Resolver<'_>>) -> Res
             &a.ids,
             "",
             "",
-            &[(&compose_name.as_str(), &st0.head)],
+            &[(compose_name.as_str(), &st0.head)],
             &ed.pending,
             &ed.binaries,
         );
@@ -818,10 +845,7 @@ pub(crate) fn opt_lift(ctx: &Ctx, a: OptArgs, res: Option<&Resolver<'_>>) -> Res
     println!("{}", result_line);
     println!("{}", render::head_line(&head_before, &head_after));
     if ctx.globals.verbose && !ed.new_ops.is_empty() {
-        println!(
-            "  {}",
-            t!("stack.new_ops", ids = conj_list.join(", "))
-        );
+        println!("  {}", t!("stack.new_ops", ids = conj_list.join(", ")));
     }
     println!("{}", render::pooled_line(&ed.pool_adds));
     Ok(())
@@ -857,7 +881,7 @@ pub(crate) fn opt_pop(ctx: &Ctx, a: OptArgs, res: Option<&Resolver<'_>>) -> Res<
                         name = compose_name
                     )
                     .to_string(),
-                ))
+                ));
             }
         }
     }
@@ -877,7 +901,7 @@ pub(crate) fn opt_pop(ctx: &Ctx, a: OptArgs, res: Option<&Resolver<'_>>) -> Res<
             &a.ids,
             "",
             "",
-            &[(&compose_name.as_str(), &st0.head)],
+            &[(compose_name.as_str(), &st0.head)],
             &ed.pending,
             &ed.binaries,
         );
@@ -1035,10 +1059,7 @@ pub(crate) fn opt_compact(ctx: &Ctx, a: OptArgs, res: Option<&Resolver<'_>>) -> 
     let ed0 = StackEdit::load(ctx, &st0)?;
     // 分支选择必须走 canon（含"当前形态 id 归槽"）：只用 pos 会把 amend 后的
     // 栈内 op 误判成他栈/池内（QA 发现，2026-10-02）
-    let on_stack: Vec<Hash> = resolved
-        .iter()
-        .filter_map(|(h, _)| ed0.canon(h))
-        .collect();
+    let on_stack: Vec<Hash> = resolved.iter().filter_map(|(h, _)| ed0.canon(h)).collect();
 
     if on_stack.len() == resolved.len() {
         // 全在当前栈上
@@ -1062,7 +1083,7 @@ pub(crate) fn opt_compact(ctx: &Ctx, a: OptArgs, res: Option<&Resolver<'_>>) -> 
                 &a.ids,
                 &msg,
                 "",
-                &[(&compose_name.as_str(), &st0.head)],
+                &[(compose_name.as_str(), &st0.head)],
                 &ed.pending,
                 &ed.binaries,
             );
@@ -1136,8 +1157,7 @@ pub(crate) fn opt_compact(ctx: &Ctx, a: OptArgs, res: Option<&Resolver<'_>>) -> 
         let mut run_post = resolved[0].1.post;
         let mut trees: BTreeMap<Hash, Tree> = BTreeMap::new();
         let mut blobs: BTreeMap<Hash, Vec<u8>> = BTreeMap::new();
-        let mut fold_seq: usize = 0;
-        for (_, op) in &resolved[1..] {
+        for (fold_seq, (_, op)) in resolved[1..].iter().enumerate() {
             let base_t = ctx
                 .store
                 .get_tree(&op.pre)?
@@ -1174,13 +1194,12 @@ pub(crate) fn opt_compact(ctx: &Ctx, a: OptArgs, res: Option<&Resolver<'_>>) -> 
                         &a.ids,
                         &msg,
                         "",
-                        &[(&compose_name.as_str(), &st0.head)],
+                        &[(compose_name.as_str(), &st0.head)],
                         &pending,
                         &fail.binaries,
                     );
                 }
             };
-            fold_seq += 1;
             trees.insert(m.tree_id, m.tree);
             blobs.extend(m.blobs);
             run_post = m.tree_id;
@@ -1268,10 +1287,9 @@ pub fn cmd_show(ctx: &Ctx, composes: bool, operations: bool, id: Option<String>)
     // 默认：当前 compose 头 + 独立 stack 小节（块式，层级见 render.rs）
     match ctx.store.current_name()? {
         Some(name) => {
-            let st = ctx
-                .store
-                .compose_get(&name)?
-                .ok_or_else(|| PocError::Msg(t!("error.compose_not_found", name = name).to_string()))?;
+            let st = ctx.store.compose_get(&name)?.ok_or_else(|| {
+                PocError::Msg(t!("error.compose_not_found", name = name).to_string())
+            })?;
             let mut ops = Vec::new();
             for h in &st.ops {
                 let op = ctx
@@ -1309,7 +1327,9 @@ fn show_composes(ctx: &Ctx) -> Res<()> {
         } else {
             t!("show.n_ops", n = st.ops.len()).to_string()
         };
-        out.push_str(&render::compose_block(&name, &st.base, &st.head, cur, &note));
+        out.push_str(&render::compose_block(
+            &name, &st.base, &st.head, cur, &note,
+        ));
     }
     ui::page(ctx.globals.no_pager, &out);
     Ok(())
@@ -1347,7 +1367,9 @@ pub fn resolve_op(ctx: &Ctx, s: &str) -> Res<(Hash, Op)> {
     let all = ctx.store.list_ops()?;
     let m: Vec<&(Hash, Op)> = all.iter().filter(|(h, _)| h.has_prefix(s)).collect();
     match m.len() {
-        0 => Err(PocError::NotFound(t!("error.op_not_found", id = s).to_string())),
+        0 => Err(PocError::NotFound(
+            t!("error.op_not_found", id = s).to_string(),
+        )),
         1 => Ok((m[0].0, m[0].1.clone())),
         _ => {
             let list: Vec<String> = m.iter().take(6).map(|(h, _)| h.short()).collect();
@@ -1418,9 +1440,10 @@ pub fn cmd_log(ctx: &Ctx, name: Option<String>, all: bool) -> Res<()> {
     }
     let target = match name {
         Some(n) => n,
-        None => ctx.store.current_name()?.ok_or_else(|| {
-            PocError::Msg(t!("error.no_current_log").into())
-        })?,
+        None => ctx
+            .store
+            .current_name()?
+            .ok_or_else(|| PocError::Msg(t!("error.no_current_log").into()))?,
     };
     let mut out = String::new();
     out.push_str(&format!(
@@ -1524,7 +1547,8 @@ fn diff_text(ctx: &Ctx, old: &Tree, new: NewSide<'_>, stat: bool) -> Res<String>
         }
     };
     // 先收集（路径, 旧内容, 新内容）再渲染：--stat 的路径列按最长路径对齐
-    let mut rows: Vec<(String, Option<Vec<u8>>, Option<Vec<u8>>)> = Vec::new();
+    type DiffRow = (String, Option<Vec<u8>>, Option<Vec<u8>>);
+    let mut rows: Vec<DiffRow> = Vec::new();
     for p in &d.added {
         rows.push((p.clone(), None, new_bytes(p)?));
     }
@@ -1599,11 +1623,7 @@ fn colorize_unified(text: &str) -> String {
     out
 }
 
-fn blob_of_entry(
-    ctx: &Ctx,
-    m: &BTreeMap<String, (Mode, Hash)>,
-    p: &str,
-) -> Res<Option<Vec<u8>>> {
+fn blob_of_entry(ctx: &Ctx, m: &BTreeMap<String, (Mode, Hash)>, p: &str) -> Res<Option<Vec<u8>>> {
     match m.get(p) {
         Some((_, h)) => ctx.store.get_blob(h),
         None => Ok(None),
@@ -1691,21 +1711,17 @@ pub(crate) fn cmd_cmp_merge(
             }
         }
     };
-    let mut acc = ctx
-        .store
-        .compose_get(&names[0])?
-        .ok_or_else(|| {
-            PocError::NotFound(t!("error.compose_not_found", name = names[0]).to_string())
-        })?;
+    let mut acc = ctx.store.compose_get(&names[0])?.ok_or_else(|| {
+        PocError::NotFound(t!("error.compose_not_found", name = names[0]).to_string())
+    })?;
     let mut new_ops: Vec<(Hash, Op)> = Vec::new();
     let mut new_trees: BTreeMap<Hash, Tree> = BTreeMap::new();
     let mut new_blobs: BTreeMap<Hash, Vec<u8>> = BTreeMap::new();
     let mut mseq: usize = 0;
     for nxt in &names[1..] {
-        let bst = ctx
-            .store
-            .compose_get(nxt)?
-            .ok_or_else(|| PocError::NotFound(t!("error.compose_not_found", name = nxt).to_string()))?;
+        let bst = ctx.store.compose_get(nxt)?.ok_or_else(|| {
+            PocError::NotFound(t!("error.compose_not_found", name = nxt).to_string())
+        })?;
         // 公共前缀：共享的 opt 对象不重铸
         let k = acc
             .ops
@@ -1715,12 +1731,7 @@ pub(crate) fn cmd_cmp_merge(
             .count();
         if k == 0 && acc.base != bst.base {
             return Err(PocError::Msg(
-                t!(
-                    "error.no_common_ancestor",
-                    a = names[0],
-                    b = nxt
-                )
-                .to_string(),
+                t!("error.no_common_ancestor", a = names[0], b = nxt).to_string(),
             ));
         }
         let mut head = acc.head;
@@ -1821,24 +1832,14 @@ pub(crate) fn cmd_cmp_merge(
         );
         return Ok(());
     }
-    ctx.store.commit_new_compose(
-        &result_name,
-        &acc,
-        &new_ops,
-        &new_trees,
-        &new_blobs,
-        &ev,
-    )?;
+    ctx.store
+        .commit_new_compose(&result_name, &acc, &new_ops, &new_trees, &new_blobs, &ev)?;
     if ctx.globals.quiet {
         return Ok(());
     }
     println!(
         "{}",
-        t!(
-            "cmp.merged",
-            names = names.join(" + "),
-            name = result_name
-        )
+        t!("cmp.merged", names = names.join(" + "), name = result_name)
     );
     println!(
         "  {}",
@@ -1846,10 +1847,7 @@ pub(crate) fn cmd_cmp_merge(
     );
     println!(
         "  {}",
-        paint(
-            Token::Dim,
-            t!("cmp.merge_hint", name = result_name)
-        )
+        paint(Token::Dim, t!("cmp.merge_hint", name = result_name))
     );
     Ok(())
 }
@@ -1892,12 +1890,7 @@ pub(crate) fn cmd_cmp_new(ctx: &Ctx, name: String, fork: Option<String>) -> Res<
                 .or_else(|| cur.ops.iter().position(|x| *x == h))
                 .ok_or_else(|| {
                     PocError::Msg(
-                        t!(
-                            "error.fork_not_on_stack",
-                            id = h.short(),
-                            name = cur_name
-                        )
-                        .to_string(),
+                        t!("error.fork_not_on_stack", id = h.short(), name = cur_name).to_string(),
                     )
                 })?;
             let cut = ctx
@@ -1929,7 +1922,15 @@ pub(crate) fn cmd_cmp_new(ctx: &Ctx, name: String, fork: Option<String>) -> Res<
     } else {
         None
     };
-    let ev = Event::new(EVT_CMP_NEW, &name, cut_op, "", "new compose + switch", &detail, now_ms());
+    let ev = Event::new(
+        EVT_CMP_NEW,
+        &name,
+        cut_op,
+        "",
+        "new compose + switch",
+        &detail,
+        now_ms(),
+    );
     if ctx.globals.dry_run {
         println!(
             "{}",
@@ -1963,10 +1964,9 @@ pub(crate) fn cmd_cmp_new(ctx: &Ctx, name: String, fork: Option<String>) -> Res<
 
 pub(crate) fn cmd_cmp_switch(ctx: &Ctx, name: String) -> Res<()> {
     validate_compose_name(&name)?;
-    let st = ctx
-        .store
-        .compose_get(&name)?
-        .ok_or_else(|| PocError::NotFound(t!("error.compose_not_found", name = name).to_string()))?;
+    let st = ctx.store.compose_get(&name)?.ok_or_else(|| {
+        PocError::NotFound(t!("error.compose_not_found", name = name).to_string())
+    })?;
     let (cur_name, cur) = require_current(ctx)?;
     if name == cur_name {
         println!("{}", t!("cmp.already", name = name));
@@ -2064,13 +2064,22 @@ pub fn cmd_status(ctx: &Ctx) -> Res<()> {
         } else {
             let mut parts: Vec<String> = Vec::new();
             if !d.added.is_empty() {
-                parts.push(paint(Token::Added, t!("status.n_added", n = d.added.len()).to_string()));
+                parts.push(paint(
+                    Token::Added,
+                    t!("status.n_added", n = d.added.len()).to_string(),
+                ));
             }
             if !d.removed.is_empty() {
-                parts.push(paint(Token::Removed, t!("status.n_deleted", n = d.removed.len()).to_string()));
+                parts.push(paint(
+                    Token::Removed,
+                    t!("status.n_deleted", n = d.removed.len()).to_string(),
+                ));
             }
             if !d.modified.is_empty() {
-                parts.push(paint(Token::Updated, t!("status.n_updated", n = d.modified.len()).to_string()));
+                parts.push(paint(
+                    Token::Updated,
+                    t!("status.n_updated", n = d.modified.len()).to_string(),
+                ));
             }
             out.push_str(&format!(
                 "{} {}\n",
@@ -2135,7 +2144,9 @@ pub fn cmd_config(ctx: &Ctx, unset: bool, key: Option<String>, value: Option<Str
         }
         (true, Some(k), None) => {
             if !config::valid_config_key(&k) {
-                return Err(PocError::Usage(t!("config.err_bad_key", key = k).to_string()));
+                return Err(PocError::Usage(
+                    t!("config.err_bad_key", key = k).to_string(),
+                ));
             }
             ctx.store.meta_del(&k)?;
             println!("{}", t!("config.removed", key = k));
@@ -2143,7 +2154,9 @@ pub fn cmd_config(ctx: &Ctx, unset: bool, key: Option<String>, value: Option<Str
         }
         (false, Some(k), Some(v)) => {
             if !config::valid_config_key(&k) {
-                return Err(PocError::Usage(t!("config.err_bad_key", key = k).to_string()));
+                return Err(PocError::Usage(
+                    t!("config.err_bad_key", key = k).to_string(),
+                ));
             }
             let v = v.trim().to_string();
             ctx.store.meta_set(&k, &v)?;
@@ -2165,9 +2178,7 @@ pub fn step_commit(ctx: &Ctx) -> Res<()> {
         let st = ctx
             .store
             .compose_get(name)?
-            .ok_or_else(|| {
-                PocError::Msg(t!("error.compose_not_found", name = name).to_string())
-            })?;
+            .ok_or_else(|| PocError::Msg(t!("error.compose_not_found", name = name).to_string()))?;
         if st.head.hex() != *headhex {
             return Err(PocError::Msg(
                 t!("step.err_guard_moved", name = name).to_string(),
@@ -2208,7 +2219,7 @@ pub fn step_commit(ctx: &Ctx) -> Res<()> {
         other => {
             return Err(PocError::Msg(
                 t!("step.err_unknown_kind", kind = other).to_string(),
-            ))
+            ));
         }
     }
     crate::step::clear(&ctx.store, &ctx.root)?;

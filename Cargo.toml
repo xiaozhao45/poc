@@ -8,7 +8,7 @@ license = "MIT"
 readme = "README.md"
 keywords = ["vcs", "version-control", "cli"]
 categories = ["command-line-utilities", "development-tools"]
-# Add `repository = "https://github.com/<owner>/poc"` once the GitHub URL is set.
+repository = "https://github.com/xiaozhao45/poc"
 
 [lib]
 name = "poc_lib"

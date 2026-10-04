@@ -8,12 +8,12 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use similar::merge::TextMerge;
 
-use crate::db::{tree_id, Store};
+use crate::TAG_BLOB;
+use crate::db::{Store, tree_id};
 use crate::diff::is_binary;
 use crate::err::PocError;
 use crate::hash::Hash;
 use crate::object::{Mode, Tree, TreeEntry};
-use crate::TAG_BLOB;
 
 /// 树级三路合并的产出：新快照 + 合并产生的**新 blob**（调用方须随同一事务入库）。
 pub struct Merged {
@@ -98,9 +98,7 @@ fn wrap_markers(ours: &[u8], theirs: &[u8]) -> Vec<u8> {
 fn resolve_mode(b: Mode, o: Mode, t: Mode) -> Option<Mode> {
     if o == b {
         Some(t)
-    } else if t == b {
-        Some(o)
-    } else if o == t {
+    } else if t == b || o == t {
         Some(o)
     } else {
         None
@@ -168,10 +166,7 @@ pub fn merge_trees_resolving(
                                 fail.binaries.push(p.clone());
                                 continue;
                             }
-                            match merge_text(&bb, &ob, &tb) {
-                                Ok(bytes) => Some(bytes),
-                                Err(()) => None,
-                            }
+                            merge_text(&bb, &ob, &tb).ok()
                         };
                         // mode
                         let mode = resolve_mode(bm_, om_, tm_);
@@ -200,7 +195,7 @@ pub fn merge_trees_resolving(
                                     path: p.clone(),
                                     marked,
                                 };
-                                match resolve(&p, &fc) {
+                                match resolve(p, &fc) {
                                     Some(bytes) => {
                                         let h = Hash::compute(TAG_BLOB, &bytes);
                                         blobs.insert(h, bytes);
@@ -230,7 +225,7 @@ pub fn merge_trees_resolving(
                             path: p.clone(),
                             marked,
                         };
-                        match resolve(&p, &fc) {
+                        match resolve(p, &fc) {
                             Some(bytes) => {
                                 // 空内容 = 用户裁定删除
                                 if !bytes.is_empty() {
@@ -267,7 +262,12 @@ fn none_resolve(_p: &str, _fc: &FileConflict) -> Option<Vec<u8>> {
 }
 
 /// merge3 严格形态：任何冲突 → Err(文件列表)。
-pub fn merge_trees(store: &Store, base: &Tree, ours: &Tree, theirs: &Tree) -> Result<Merged, Vec<String>> {
+pub fn merge_trees(
+    store: &Store,
+    base: &Tree,
+    ours: &Tree,
+    theirs: &Tree,
+) -> Result<Merged, Vec<String>> {
     merge_trees_resolving(store, base, ours, theirs, &mut none_resolve).map_err(|f| f.file_names())
 }
 
@@ -292,11 +292,7 @@ pub fn fail_err(fail: &MergeFail) -> PocError {
     use rust_i18n::t;
     if !fail.binaries.is_empty() {
         return PocError::Conflict(
-            t!(
-                "merge.binary_conflict",
-                paths = fail.binaries.join(", ")
-            )
-            .to_string(),
+            t!("merge.binary_conflict", paths = fail.binaries.join(", ")).to_string(),
         );
     }
     PocError::Conflict(

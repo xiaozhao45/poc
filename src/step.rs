@@ -7,7 +7,7 @@ use std::path::PathBuf;
 
 use crate::db::Store;
 use crate::err::{PocError, Res};
-use crate::object::{put_str, put_u64, Cursor};
+use crate::object::{Cursor, put_str, put_u64};
 
 pub const STEP_META: &str = "step";
 
@@ -142,9 +142,8 @@ pub fn clear(store: &Store, root: &std::path::Path) -> Res<()> {
 
 /// 交换文件是否仍含未解决的冲突标记。
 pub fn has_markers(b: &[u8]) -> bool {
-    b.split(|c| *c == b'\n').any(|l| {
-        l.starts_with(b"<<<<<<< ") || l.starts_with(b">>>>>>> ") || l == b"======="
-    })
+    b.split(|c| *c == b'\n')
+        .any(|l| l.starts_with(b"<<<<<<< ") || l.starts_with(b">>>>>>> ") || l == b"=======")
 }
 
 /// 待办步骤的存在性门禁（新交互命令遇待办步骤即拒绝）。
