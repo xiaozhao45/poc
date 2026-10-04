@@ -1,5 +1,7 @@
 //! 用户信息：本仓库 meta → $GIT_AUTHOR_* → Git 全局（gix-config，含 include 展开）。
 
+use rust_i18n::t;
+
 use crate::db::Store;
 use crate::err::{PocError, Res};
 use crate::object::Author;
@@ -18,11 +20,11 @@ pub enum Source {
 }
 
 impl Source {
-    pub fn label(self) -> &'static str {
+    pub fn label(self) -> String {
         match self {
-            Source::Repo => "本仓库",
-            Source::Env => "环境变量",
-            Source::GitGlobal => "Git 全局",
+            Source::Repo => t!("config.source_repo").to_string(),
+            Source::Env => t!("config.source_env").to_string(),
+            Source::GitGlobal => t!("config.source_git").to_string(),
         }
     }
 }
@@ -79,7 +81,7 @@ pub fn resolve_key(store: &Store, key: &str) -> Res<Option<(String, Source)>> {
 /// name 必有、email 可空。返回（身份, name 的来源）。
 pub fn resolve_identity(store: &Store) -> Res<(Identity, Source)> {
     let (name, src) = resolve_key(store, USER_NAME)?.ok_or_else(|| {
-        PocError::Config("缺少用户名：`poc config user.name \"…\"`，或设置 Git 全局 user.name".into())
+        PocError::Config(t!("config.err_missing_name").to_string())
     })?;
     let email = resolve_key(store, USER_EMAIL)?
         .map(|(v, _)| v)

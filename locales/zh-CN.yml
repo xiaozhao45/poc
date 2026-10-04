@@ -1,0 +1,237 @@
+# P.O.C. 消息目录（zh-CN；en 为事实源，缺键回退 en）。
+
+proj:
+  initialized: "已初始化 P.O.C. 项目 %{path}（compose: main）"
+  err_both: "`-N` 与 <path> 不可同时使用"
+  err_bad_name: "非法项目名"
+  err_dir_exists: "目录已存在：%{path}"
+  err_already: "已是 P.O.C. 项目：%{path}"
+
+config:
+  effective: "生效配置："
+  not_set: "（未设置）"
+  source_repo: "本仓库"
+  source_env: "环境变量"
+  source_git: "Git 全局"
+  source_init: "初始化时写入"
+  written: "已写入 %{key} = %{value}（本仓库）"
+  removed: "已删除 %{key}"
+  err_bad_key: "不支持的配置键：%{key}"
+  err_usage: "用法：poc config | poc config <key> <value> | poc config --unset <key>"
+  err_missing_name: "缺少用户名：`poc config user.name \"…\"`，或设置 Git 全局 user.name"
+
+gc:
+  done: "gc 完成：清理 %{blobs} blob / %{trees} tree / %{ops} op"
+  done_deep: "gc --deep 完成：清理 %{blobs} blob / %{trees} tree / %{ops} op"
+
+err:
+  prefix: "错误"
+  usage_prefix: "用法错误"
+
+show:
+  current: "（当前）"
+  stack_header: "栈（栈顶在前，共 %{n} 个）："
+  stack_empty: "空栈（head == base）"
+  empty_stack_note: "空栈"
+  n_ops: "operation 数: %{n}"
+  ops_header: "全部 operation（%{n}，按时间倒序）"
+  k_message: "消息"
+  k_author: "作者"
+  k_time: "时间"
+  k_pre: "前态"
+  k_post: "后态"
+
+status:
+  pool_header: "自由池（%{n}，按入池时间）："
+  pool_empty: "（空）"
+  missing: "<对象缺失>"
+  unrecorded_label: "未记录变更:"
+  n_added: "新增 %{n}"
+  n_deleted: "删除 %{n}"
+  n_updated: "更新 %{n}"
+  clean: "未记录变更：无（工作区与 head 一致）"
+  no_compose: "（无当前 Compose）"
+  pending_none: "待办步骤：无"
+
+step:
+  pending_label: "待办步骤"
+  kind_lift: "提升重排"
+  kind_pop: "弹出"
+  kind_compact: "压缩"
+  kind_merge: "合并"
+  operations: "涉及:"
+  message: "消息:"
+  result: "结果栈:"
+  swap_hint: "编辑交换文件去掉冲突标记后 `poc --commit` 提交；`poc --cancel` 放弃"
+  conflict_created: "冲突无法自动消解，已留下待办步骤（存储与工作区未被改动）"
+  err_none: "无待办步骤"
+  err_pending: "有待办步骤：先 `poc --commit` 提交或 `poc --cancel` 放弃"
+  err_guard_moved: "步骤前置状态已变化（`%{name}` 的 head 已移动）：请 `poc --cancel` 后重新操作"
+  err_unknown_kind: "未知步骤种类：%{kind}"
+  committed: "步骤已提交，交换文件已清理"
+  cancelled: "已放弃步骤（%{kind}）；存储与工作区未被改动"
+
+log:
+  history_header: "栈 \"%{name}\" 的操作日志（旧 -> 新）："
+  empty: "（日志为空）"
+  none: "（无记录：该 Compose 不存在或尚未有任何操作）"
+  kind_init: "建立"
+  kind_new_stack: "新栈"
+  kind_push: "入栈"
+  kind_amend: "改写"
+  kind_compact: "压缩"
+  kind_pop: "弹出"
+  kind_merge: "合并"
+  kind_remove: "移除"
+  kind_destroy: "销毁"
+  kind_restore: "找回"
+  kind_purge: "清除"
+
+diff:
+  none: "（无差异）"
+  binary: "（二进制）"
+  binary_full: "（二进制文件：按整体替换处理，不产生行级差异）"
+
+merge:
+  conflict_summary: "合并冲突文件: %{paths}"
+  binary_conflict: "二进制冲突（不可步骤化消解）: %{paths}"
+
+record:
+  created: "已创建 operation %{id} \"%{msg}\""
+
+stack:
+  head_unchanged: "head 不变（%{id}）"
+  head_moved: "head %{from} -> %{to}（工作区已物化）"
+  pooled: "已入自由池: %{ids}"
+  nothing_pooled: "无对象入池"
+  lifted: "已将 %{ids} 提升到 \"%{name}\" 栈顶"
+  applied: "已将 %{ids} 施加到 \"%{name}\" 栈顶"
+  popped: "已将 %{ids} 弹出 \"%{name}\""
+  compacted: "已压缩 %{ids} -> %{id} \"%{msg}\"（%{mode}）"
+  mode_inplace: "原位替换"
+  mode_gathered: "聚拢"
+  composite: "已复合出 %{id} \"%{msg}\"（入自由池）"
+  new_ops: "新铸 operation: %{ids}"
+  head_only: "head %{id}"
+
+amend:
+  rewrote: "已改写 \"%{name}\" 栈顶: %{id} \"%{msg}\""
+
+cmp:
+  switched: "已切换到 Compose \"%{name}\"（head %{id}）"
+  already: "已在 Compose \"%{name}\""
+  created: "已新建 Compose \"%{name}\" 并切换（%{detail}）"
+  merged: "已合并 %{names} -> 新 Compose \"%{name}\""
+  merge_hint: "源栈保留、当前栈不变；查看 `poc show %{name}`，切换 `poc cmp %{name}`"
+
+dryrun:
+  record: "[dry-run] 将新建 operation %{id} \"%{msg}\" 压入 \"%{name}\"（不落盘）"
+  amend: "[dry-run] 将改写 \"%{name}\" 栈顶: %{id} \"%{msg}\"（不落盘）"
+  lift: "[dry-run] 将提升 %{ids}（新铸 %{n} 个）；head %{from} -> %{to}（不落盘）"
+  pop: "[dry-run] 将弹出 %{ids} 入自由池；head %{from} -> %{to}（不落盘）"
+  compact_inplace: "[dry-run] 将压缩 %{ids} -> %{id} \"%{msg}\"（原位替换）；head 不变（%{head}）（不落盘）"
+  compact_gather: "[dry-run] 将压缩 %{ids} -> %{id} \"%{msg}\"（聚拢）；head 不变（%{head}）（不落盘）"
+  compact_pool: "[dry-run] 将复合 %{ids} -> %{id} \"%{msg}\" 入自由池；栈分毫不动（不落盘）"
+  merge: "[dry-run] 将合并 %{names} -> 新 Compose \"%{name}\"；head %{id}（不落盘）"
+  new: "[dry-run] 将新建 Compose \"%{name}\" 并切换（%{detail}）；head %{id}（不落盘）"
+
+error:
+  id_prefix_short: "operation id 前缀至少 4 位十六进制"
+  op_not_found: "operation 未找到: %{id}"
+  op_ambiguous: "operation id 前缀 %{id} 命中多个: %{list}"
+  compose_not_found: "Compose 未找到: %{name}"
+  no_current_create: "当前没有 Compose（已被移除）；用 `poc cmp -N <name>` 新建"
+  no_current_log: "无当前 Compose：用 `poc log <name>` 或 `poc log -a`"
+  dirty_record: "工作区不干净：先 `poc opt -M` 记录变更"
+  dirty_switch: "工作区不干净：先 `poc opt -M` 记录变更后再切换"
+  empty_message: "消息不能为空"
+  message_cancelled: "消息为空，已取消记录"
+  step_no_editor: "`-s` 模式不打开编辑器：请用 `-M` 给出消息"
+  no_changes: "没有可记录的变更（工作区与 head 一致）"
+  amend_no_ids: "`--amend` 改写栈顶，不接受 operation ids"
+  amend_flags: "`--amend` 不与 `-f`/`-c` 同用"
+  free_compact: "`-f` 与 `-c` 不可同时使用"
+  ids_required: "`-f`/`-c` 须与 operation ids 搭配"
+  lift_no_include: "`-i` 不适用于提升"
+  lift_no_message: "`-M` 不适用于提升"
+  pop_no_include: "`-i` 不适用于弹出"
+  pop_no_message: "`-M` 不适用于弹出"
+  compact_no_include: "`-i` 不适用于压缩"
+  compact_need_two: "压缩需要至少两个不同 operation"
+  stack_empty: "栈为空，无法弹出"
+  stack_empty_amend: "栈为空，无法 amend"
+  pop_not_on_stack: "operation %{id} 不在 Compose \"%{name}\" 上（池内 operation 无需弹出；他栈 operation 不可跨栈弹出）"
+  lift_missing: "operation 不在当前栈上"
+  lift_noop: "该 operation 的变更已包含于当前 head（提升为空）"
+  fork_needs_new: "`--fork` 须与 `-N` 同用（可带 op-id）"
+  fork_no_compact: "`--fork` 不与 `-c` 同用"
+  new_no_names: "`-N` 不与 names 同用"
+  switch_one: "切换需要恰一个 Compose 名（合并用 -c）"
+  merge_min_two: "合并需要至少两个 Compose 名"
+  cmp_usage: "poc cmp <name> 切换；poc cmp -N <name> [--fork [op-id]] 新建；poc cmp <a> <b> -c 合并"
+  fork_not_on_stack: "operation %{id} 不在当前栈 \"%{name}\" 上（--fork <op-id> 只接受当前栈内的 operation）"
+  no_common_ancestor: "\"%{a}\" 与 \"%{b}\" 无公共祖先快照，无法合并"
+  bad_compose_name: "非法 Compose 名：%{name}"
+  compose_exists: "Compose 已存在：%{name}"
+  show_exclusive: "show <id> 与节选旗标互斥"
+  log_all_name: "`-a` 与栈名互斥"
+  diff_pair: "diff 需要两个 id 成对给出"
+  unknown_global: "未知全局旗标 `%{flag}`（全局旗标必须位于命令词之前；命令局部旗标写在命令词之后）"
+  bad_glob: "非法 glob：%{e}"
+  data_origs: "Compose 槽位数据不一致（origs/ops 长度不符）"
+  data_missing_op: "栈内 op 对象缺失（数据不一致）"
+  data_missing_tree: "树缺失（数据不一致）"
+  data_missing_head: "head 树缺失（数据不一致）"
+
+fork:
+  detail_new: "新历史，base = \"%{name}\" 的 head"
+  detail_fork: "fork 自 \"%{name}\"（栈顶，整栈复刻，原栈不动）"
+  detail_prefix: "fork 自 \"%{name}\" @ %{opid}（前缀 %{n} 个 operation，原栈不动）"
+
+dp:
+  not_enabled: "危险模式未开启：先 `dpoc enable`（交互确认）"
+  not_tty: "dpoc 危险动词必须在交互终端执行（拒绝非 TTY）"
+  confirm_prompt: "确认：请完整输入 `%{expected}`"
+  confirm_mismatch: "确认不匹配，已取消"
+  enable_prompt: "dpoc enable：允许物理销毁对象。销毁默认进入 attic（可 restore），attic-purge 才不可逆。"
+  enabled: "危险模式已开启（本项目）。"
+  disabled: "危险模式已关闭。"
+  verb_denied: "许可：%{verb} 被 dpoc.conf 拒绝"
+  already_attic: "已在 attic，跳过：%{id}"
+  destroy_on_stack: "operation %{id} 在某个 Compose 栈内：栈内销毁需要重建上层。可先 `dpoc compose-remove`。"
+  destroyed: "已移入 attic: %{id}  \"%{msg}\""
+  removed: "已移除 Compose \"%{name}\"；栈内成员沉淀自由池"
+  compose_destroyed: "已销毁 Compose \"%{name}\"；成员进 attic"
+  not_in_attic: "不在 attic: %{id}"
+  restored: "已从 attic 恢复到自由池: %{id}  \"%{msg}\""
+  purge_not_attic: "%{id} 不在 attic（只允许 purge attic 内的对象）"
+  purged: "已真删除: %{id}（日志留痕）"
+  no_composes: "项目已无 Compose；用 `poc cmp -N` 新建"
+  current_switched: "当前 Compose 切换为 \"%{name}\""
+  current_dirty: "注意：工作区与新当前栈 \"%{name}\" 的 head 不一致；用 `poc status` 查看，手工处理后可 `poc cmp <name>` 切换"
+  unknown_verb: "未知 dpoc 动词: %{verb}"
+  verify_ok: "verify 通过：%{n} 个 operation，全部引用与审计/日志连续性正常"
+  verify_hash: "op 哈希不符: %{id}"
+  verify_missing_tree: "op %{id} 引用的树缺失"
+  verify_compose_tree: "compose %{name} 引用的树缺失"
+  verify_compose_op: "compose %{name} 引用的 op 缺失"
+  verify_audit_gap: "审计日志不连续"
+  verify_log_gap: "操作日志不连续"
+
+cpoc:
+  deferred: "cpoc：链接协作已推迟至 1.x（本二进制为占位）。设计输入见 docs/DESIGN.md §1.5 / §4.5。"
+
+help:
+  after: |-
+    全局旗标（必须写在命令词之前）：
+      -o, --gc         先执行 gc 优化
+      -s, --step       不打开任何交互界面，改为留下待办步骤
+      -c, --commit     提交待办步骤，然后执行命令
+      -q, --cancel     放弃待办步骤
+      -p, --no-pager   本次输出不分页
+      --dry-run        内存预演并报告，不落盘
+      --quiet          只输出结果 id 与错误
+      --verbose        额外输出文件清单与逐步细节
+      -y, --yes        （预留；1.0 无效果）
+
+    命令词之后的同名旗标归该命令（`-c` 在 `opt` 后是压缩、在 `cmp` 后是合并）。

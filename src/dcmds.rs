@@ -5,10 +5,15 @@ use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use anstream::println;
+use rust_i18n::t;
+
 use crate::cli::Globals;
+use crate::theme::{paint, Token};
 use crate::cmds::{resolve_op, Ctx};
 use crate::err::{PocError, Res};
 use crate::hash::Hash;
+use crate::log::{Event, EVT_DESTROY, EVT_PURGE, EVT_REMOVE, EVT_RESTORE, POOL_SCOPE};
 use crate::render;
 
 /// 销毁类动词：dpoc.conf 默认 deny，未列出即拒绝。
@@ -60,7 +65,7 @@ fn verb_allowed(verb: &str) -> bool {
 fn require_enabled(ctx: &Ctx) -> Res<()> {
     if ctx.store.meta_get("dp.enabled")?.as_deref() != Some("1") {
         return Err(PocError::Msg(
-            "危险模式未开启：先 `dpoc enable`（交互确认）".to_string(),));
+            t!("dp.not_enabled").to_string(),));
     }
     Ok(())
 }
@@ -68,19 +73,19 @@ fn require_enabled(ctx: &Ctx) -> Res<()> {
 fn require_tty() -> Res<()> {
     if !crate::ui::stdout_is_tty() {
         return Err(PocError::Msg(
-            "dpoc 危险动词必须在交互终端执行（拒绝非 TTY）".to_string(),));
+            t!("dp.not_tty").to_string(),));
     }
     Ok(())
 }
 
 fn confirm_typed(expected: &str) -> Res<()> {
-    println!("确认：请完整输入 `{expected}`");
+    println!("{}", t!("dp.confirm_prompt", expected = expected));
     let mut line = String::new();
     std::io::stdin().read_line(&mut line)?;
     if line.trim() == expected {
         Ok(())
     } else {
-        Err(PocError::Msg("确认不匹配，已取消".to_string()))
+        Err(PocError::Msg(t!("dp.confirm_mismatch").to_string()))
     }
 }
 
@@ -105,7 +110,10 @@ pub fn run(args: &[String]) -> Res<()> {
         "gc" => {
             let ctx = Ctx::open(Globals::default())?;
             let (b, t, o) = ctx.store.gc_run()?;
-            println!("gc --deep 完成：清理 blob {b} / tree {t} / op {o}");
+            println!(
+                "{}",
+                rust_i18n::t!("gc.done_deep", blobs = b, trees = t, ops = o)
+            );
             Ok(())
         }
         "opt-destroy" => {
@@ -132,35 +140,33 @@ pub fn run(args: &[String]) -> Res<()> {
             print_help();
             Ok(())
         }
-        other => Err(PocError::Usage(format!("未知 dpoc 动词：{other}"))),
+        other => Err(PocError::Usage(t!("dp.unknown_verb", verb = other).to_string())),
     }
 }
 
 fn print_help() {
     println!(
-        "dpoc — P.O.C. 危险操作程序（只进行危险操作及其安全网）
-用法：
+        "dpoc — P.O.C. danger operations (only danger verbs and their safety nets)
+usage:
   dpoc enable | disable
-  dpoc opt-destroy <ids…>           # 销毁 opt → attic（栈内 opt 需先 compose-remove 或等待 M3）
-  dpoc compose-remove <names…>      # 移除 Compose，成员沉淀自由池
-  dpoc compose-destroy <names…>     # 移除并连成员销毁 → attic
-  dpoc restore <ids…>               # 从 attic 找回
-  dpoc attic-purge <ids…>           # 真删除（不可逆）
+  dpoc opt-destroy <ids…>           # destroy ops -> attic (stack members need compose-remove first)
+  dpoc compose-remove <names…>      # remove composes; members sink into the free pool
+  dpoc compose-destroy <names…>     # remove and destroy members -> attic
+  dpoc restore <ids…>               # recover from the attic
+  dpoc attic-purge <ids…>           # delete for real (irreversible)
   dpoc gc | verify | audit
-许可：$POC_CONFIG_DIR/dpoc.conf 或 ~/.config/poc/dpoc.conf，一行 `verb = allow|deny`；销毁类默认 deny。"
+permission: $POC_CONFIG_DIR/dpoc.conf or ~/.config/poc/dpoc.conf, one `verb = allow|deny` per line; destroy verbs default to deny."
     );
 }
 
 fn enable() -> Res<()> {
     require_tty()?;
-    println!(
-        "dpoc enable：允许物理销毁对象。销毁默认进入 attic（可 restore），attic-purge 才不可逆。"
-    );
+    println!("{}", t!("dp.enable_prompt"));
     confirm_typed("ENABLE")?;
     let ctx = Ctx::open(Globals::default())?;
     ctx.store.meta_set("dp.enabled", "1")?;
     ctx.store.audit_append("enable", &[], now_ms())?;
-    println!("危险模式已开启（本项目）。");
+    println!("{}", t!("dp.enabled"));
     Ok(())
 }
 
@@ -168,7 +174,7 @@ fn disable() -> Res<()> {
     let ctx = Ctx::open(Globals::default())?;
     ctx.store.meta_set("dp.enabled", "0")?;
     ctx.store.audit_append("disable", &[], now_ms())?;
-    println!("危险模式已关闭。");
+    println!("{}", t!("dp.disabled"));
     Ok(())
 }
 
@@ -182,31 +188,37 @@ fn in_attic(ctx: &Ctx, h: &Hash) -> Res<bool> {
 
 fn opt_destroy(ctx: &Ctx, ids: &[String]) -> Res<()> {
     if ids.is_empty() {
-        return Err(PocError::Usage("dpoc opt-destroy <ids…>".to_string()));
+        return Err(PocError::Usage(t!("dp.usage_destroy").to_string()));
     }
     require_enabled(ctx)?;
     require_tty()?;
     if !verb_allowed("opt-destroy") {
-        return Err(PocError::Msg("许可：opt-destroy 被 dpoc.conf 拒绝".to_string()));
+        return Err(PocError::Msg(t!("dp.verb_denied", verb = "opt-destroy").to_string()));
     }
     let pool: HashSet<Hash> = ctx.store.pool_list()?.into_iter().map(|(h, _)| h).collect();
     for s in ids {
         let (h, op) = resolve_op(ctx, s)?;
         if in_attic(ctx, &h)? {
-            println!("已在 attic，跳过：{}", h.short());
+            println!("{}", t!("dp.already_attic", id = paint(Token::Id, h.short())));
             continue;
         }
         if !pool.contains(&h) {
-            return Err(PocError::Msg(format!(
-                "opt {} 在某个 Compose 栈内：栈内销毁需要重建上层（M3 graft）。可先 `dpoc compose-remove`。",
-                h.short()
-            )));
+            return Err(PocError::Msg(
+                t!("dp.destroy_on_stack", id = h.short()).to_string(),
+            ));
         }
         confirm_typed(&format!("DESTROY {}", h.hex()))?;
-        ctx.store.pool_remove(&h)?;
-        ctx.store.attic_add(&h, "自由池", now_ms())?;
-        ctx.store.audit_append("opt-destroy", &[h], now_ms())?;
-        println!("已移入 attic：{}  \"{}\"", h.short(), op.msg);
+        let ev = Event::new(
+            EVT_DESTROY,
+            POOL_SCOPE,
+            Some(h),
+            "",
+            "destroyed (moved to attic)",
+            &op.msg,
+            now_ms(),
+        );
+        ctx.store.destroy_from_pool(&h, "自由池", "opt-destroy", &ev)?;
+        println!("{}", t!("dp.destroyed", id = paint(Token::Id, h.short()), msg = op.msg));
     }
     Ok(())
 }
@@ -218,11 +230,20 @@ fn switch_current_away(ctx: &Ctx, removed: &str) -> Res<()> {
     match ctx.store.compose_names()?.first() {
         Some(n) => {
             ctx.store.meta_set("current", n)?;
-            println!("当前 Compose 切换为 `{n}`");
+            println!("{}", t!("dp.current_switched", name = n));
+            // 不自动物化（可能覆盖未记录内容）；不一致时明确告知
+            if let Some(st) = ctx.store.compose_get(n)? {
+                if let Some(t) = ctx.store.get_tree(&st.head)? {
+                    let work = crate::tree::scan(&ctx.root)?;
+                    if !crate::tree::disk_matches_tree(&work, &t) {
+                        println!("{}", t!("dp.current_dirty", name = n));
+                    }
+                }
+            }
         }
         None => {
             ctx.store.meta_del("current")?;
-            println!("项目已无 Compose；用 `poc cmp -N` 新建");
+            println!("{}", t!("dp.no_composes"));
         }
     }
     Ok(())
@@ -230,27 +251,31 @@ fn switch_current_away(ctx: &Ctx, removed: &str) -> Res<()> {
 
 fn compose_remove(ctx: &Ctx, names: &[String]) -> Res<()> {
     if names.is_empty() {
-        return Err(PocError::Usage("dpoc compose-remove <names…>".to_string()));
+        return Err(PocError::Usage(t!("dp.usage_compose").to_string()));
     }
     require_enabled(ctx)?;
     require_tty()?;
     if !verb_allowed("compose-remove") {
-        return Err(PocError::Msg("许可：compose-remove 被 dpoc.conf 拒绝".to_string()));
+        return Err(PocError::Msg(t!("dp.verb_denied", verb = "compose-remove").to_string()));
     }
     for name in names {
         let st = ctx
             .store
             .compose_get(name)?
             .ok_or_else(|| PocError::NotFound(format!("Compose `{name}`")))?;
-        for h in &st.ops {
-            ctx.store.pool_add(h, now_ms())?;
-        }
-        ctx.store.compose_delete(name)?;
-        ctx.store.audit_append("compose-remove", &st.ops, now_ms())?;
-        println!(
-            "已移除 Compose `{name}`，{} 个成员沉淀自由池",
-            st.ops.len()
+        let shorts: Vec<String> = st.ops.iter().map(|h| h.short()).collect();
+        let ev = Event::new(
+            EVT_REMOVE,
+            name,
+            None,
+            "",
+            "compose removed; members pooled to the free pool",
+            &shorts.join(" "),
+            now_ms(),
         );
+        ctx.store
+            .compose_dispose(name, &st.ops, false, "", "compose-remove", &ev)?;
+        println!("{}", t!("dp.removed", name = name));
         switch_current_away(ctx, name)?;
     }
     Ok(())
@@ -258,12 +283,12 @@ fn compose_remove(ctx: &Ctx, names: &[String]) -> Res<()> {
 
 fn compose_destroy(ctx: &Ctx, names: &[String]) -> Res<()> {
     if names.is_empty() {
-        return Err(PocError::Usage("dpoc compose-destroy <names…>".to_string()));
+        return Err(PocError::Usage(t!("dp.usage_compose").to_string()));
     }
     require_enabled(ctx)?;
     require_tty()?;
     if !verb_allowed("compose-destroy") {
-        return Err(PocError::Msg("许可：compose-destroy 被 dpoc.conf 拒绝".to_string()));
+        return Err(PocError::Msg(t!("dp.verb_denied", verb = "compose-destroy").to_string()));
     }
     for name in names {
         let st = ctx
@@ -271,15 +296,25 @@ fn compose_destroy(ctx: &Ctx, names: &[String]) -> Res<()> {
             .compose_get(name)?
             .ok_or_else(|| PocError::NotFound(format!("Compose `{name}`")))?;
         confirm_typed(&format!("DESTROY {name}"))?;
-        for h in &st.ops {
-            ctx.store.attic_add(h, &format!("compose:{name}"), now_ms())?;
-        }
-        ctx.store.compose_delete(name)?;
-        ctx.store.audit_append("compose-destroy", &st.ops, now_ms())?;
-        println!(
-            "已销毁 Compose `{name}`（{} 个成员进 attic）",
-            st.ops.len()
+        let shorts: Vec<String> = st.ops.iter().map(|h| h.short()).collect();
+        let ev = Event::new(
+            EVT_DESTROY,
+            name,
+            None,
+            "",
+            "compose destroyed; members moved to the attic",
+            &shorts.join(" "),
+            now_ms(),
         );
+        ctx.store.compose_dispose(
+            name,
+            &st.ops,
+            true,
+            &format!("compose:{name}"),
+            "compose-destroy",
+            &ev,
+        )?;
+        println!("{}", t!("dp.compose_destroyed", name = name));
         switch_current_away(ctx, name)?;
     }
     Ok(())
@@ -287,81 +322,51 @@ fn compose_destroy(ctx: &Ctx, names: &[String]) -> Res<()> {
 
 fn restore(ctx: &Ctx, ids: &[String]) -> Res<()> {
     if ids.is_empty() {
-        return Err(PocError::Usage("dpoc restore <ids…>".to_string()));
+        return Err(PocError::Usage(t!("dp.usage_restore").to_string()));
     }
     for s in ids {
         let (h, op) = resolve_op(ctx, s)?;
         if !in_attic(ctx, &h)? {
-            println!("不在 attic：{}", h.short());
+            println!("{}", t!("dp.not_in_attic", id = h.short()));
             continue;
         }
-        ctx.store.attic_remove(&h)?;
-        ctx.store.pool_add(&h, now_ms())?;
-        ctx.store.audit_append("restore", &[h], now_ms())?;
-        println!(
-            "已从 attic 恢复到自由池：{}  \"{}\"",
-            h.short(),
-            op.msg
-        );
+        let ev = Event::new(EVT_RESTORE, POOL_SCOPE, Some(h), "", "restored from attic", "", now_ms());
+        ctx.store.restore_to_pool(&h, &ev)?;
+        println!("{}", t!("dp.restored", id = paint(Token::Id, h.short()), msg = op.msg));
     }
     Ok(())
 }
 
 fn attic_purge(ctx: &Ctx, ids: &[String]) -> Res<()> {
     if ids.is_empty() {
-        return Err(PocError::Usage("dpoc attic-purge <ids…>".to_string()));
+        return Err(PocError::Usage(t!("dp.usage_purge").to_string()));
     }
     require_enabled(ctx)?;
     require_tty()?;
     if !verb_allowed("attic-purge") {
-        return Err(PocError::Msg("许可：attic-purge 被 dpoc.conf 拒绝".to_string()));
+        return Err(PocError::Msg(t!("dp.verb_denied", verb = "attic-purge").to_string()));
     }
     for s in ids {
         let (h, _) = resolve_op(ctx, s)?;
         if !in_attic(ctx, &h)? {
-            return Err(PocError::Msg(format!(
-                "{} 不在 attic（只允许 purge attic 内的对象）",
-                h.short()
-            )));
+            return Err(PocError::Msg(
+                t!("dp.purge_not_attic", id = h.short()).to_string(),
+            ));
         }
         confirm_typed(&format!("PURGE {}", h.hex()))?;
-        purge_op(ctx, &h)?;
-        ctx.store.attic_remove(&h)?;
-        ctx.store.audit_append("attic-purge", &[h], now_ms())?;
-        println!("已真删除：{}", h.short());
+        let ev = Event::new(
+            EVT_PURGE,
+            POOL_SCOPE,
+            Some(h),
+            "",
+            "purged (this log line remains)",
+            "",
+            now_ms(),
+        );
+        ctx.store.purge_op_row(&h, &ev)?;
+        println!("{}", t!("dp.purged", id = paint(Token::Id, h.short())));
     }
     Ok(())
-}
-
-/// 删除 op 行；其 pre/post 树若无其他引用则一并删除（blobs 交给 gc）。
-fn purge_op(ctx: &Ctx, h: &Hash) -> Res<()> {
-    let op = ctx
-        .store
-        .get_op(h)?
-        .ok_or_else(|| PocError::Msg("对象缺失".into()))?;
-    ctx.store.delete_op_row(h)?;
-    for t in [op.pre, op.post] {
-        if !tree_referenced(ctx, &t)? {
-            ctx.store.delete_tree_row(&t)?;
-        }
-    }
-    Ok(())
-}
-
-fn tree_referenced(ctx: &Ctx, t: &Hash) -> Res<bool> {
-    for (_, op) in ctx.store.list_ops()? {
-        if op.pre == *t || op.post == *t {
-            return Ok(true);
-        }
-    }
-    for name in ctx.store.compose_names()? {
-        if let Some(st) = ctx.store.compose_get(&name)? {
-            if st.base == *t || st.head == *t {
-                return Ok(true);
-            }
-        }
-    }
-    Ok(false)
 }
 
 fn audit(ctx: &Ctx) -> Res<()> {
@@ -386,7 +391,7 @@ fn verify(ctx: &Ctx) -> Res<()> {
         for t in [op.pre, op.post] {
             ctx.store
                 .get_tree(&t)?
-                .ok_or_else(|| PocError::Msg(format!("op {} 引用的树缺失", h.short())))?;
+                .ok_or_else(|| PocError::Msg(t!("dp.verify_missing_tree", id = h.short()).to_string()))?;
         }
     }
     for name in ctx.store.compose_names()? {
@@ -397,12 +402,12 @@ fn verify(ctx: &Ctx) -> Res<()> {
         for t in [st.base, st.head] {
             ctx.store
                 .get_tree(&t)?
-                .ok_or_else(|| PocError::Msg(format!("compose {name} 引用的树缺失")))?;
+                .ok_or_else(|| PocError::Msg(t!("dp.verify_compose_tree", name = name).to_string()))?;
         }
         for h in &st.ops {
             ctx.store
                 .get_op(h)?
-                .ok_or_else(|| PocError::Msg(format!("compose {name} 引用的 op 缺失")))?;
+                .ok_or_else(|| PocError::Msg(t!("dp.verify_compose_op", name = name).to_string()))?;
         }
     }
     let seq: u64 = ctx
@@ -411,8 +416,19 @@ fn verify(ctx: &Ctx) -> Res<()> {
         .and_then(|s| s.parse().ok())
         .unwrap_or(0);
     if ctx.store.audit_list()?.len() as u64 != seq {
-        return Err(PocError::Msg("审计日志不连续".to_string()));
+        return Err(PocError::Msg(t!("dp.verify_audit_gap").to_string()));
     }
-    println!("verify 通过：ops {} 条，全部引用与审计连续性正常", ops.len());
+    let lseq: u64 = ctx
+        .store
+        .meta_get("log.seq")?
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(0);
+    if ctx.store.log_list()?.len() as u64 != lseq {
+        return Err(PocError::Msg(t!("dp.verify_log_gap").to_string()));
+    }
+    println!(
+        "{}",
+        t!("dp.verify_ok", n = ops.len())
+    );
     Ok(())
 }

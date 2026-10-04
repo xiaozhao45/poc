@@ -1,0 +1,5 @@
+# Rust build artifacts
+/target
+
+# P.O.C. project data (in case the tool is used on its own repository)
+/.poc/

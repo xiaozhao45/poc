@@ -1,0 +1,238 @@
+# P.O.C. 消息目录（en = 事实源；键缺译时运行时回退到 en）。
+# 占位符语法 %{name}；贡献翻译：复制本文件为 locales/<locale>.yml 并逐键翻译。
+
+proj:
+  initialized: "Initialized P.O.C. project %{path} (compose: main)"
+  err_both: "`-N` and <path> cannot be used together"
+  err_bad_name: "invalid project name"
+  err_dir_exists: "directory already exists: %{path}"
+  err_already: "already a P.O.C. project: %{path}"
+
+config:
+  effective: "effective configuration:"
+  not_set: "(not set)"
+  source_repo: "repository"
+  source_env: "environment"
+  source_git: "git global config"
+  source_init: "set at init"
+  written: "written %{key} = %{value} (repository)"
+  removed: "removed %{key}"
+  err_bad_key: "unsupported configuration key: %{key}"
+  err_usage: "usage: poc config | poc config <key> <value> | poc config --unset <key>"
+  err_missing_name: "missing user name: set it with `poc config user.name \"…\"`, or configure the git-global user.name"
+
+gc:
+  done: "gc: removed %{blobs} blobs, %{trees} trees, %{ops} operations"
+  done_deep: "gc --deep: removed %{blobs} blobs, %{trees} trees, %{ops} operations"
+
+err:
+  prefix: "error"
+  usage_prefix: "usage"
+
+show:
+  current: " (current)"
+  stack_header: "stack (top first, %{n} total):"
+  stack_empty: "stack is empty (head == base)"
+  empty_stack_note: "empty stack"
+  n_ops: "operations: %{n}"
+  ops_header: "operations (%{n}, newest first)"
+  k_message: "message"
+  k_author: "author"
+  k_time: "time"
+  k_pre: "pre"
+  k_post: "post"
+
+status:
+  pool_header: "free pool (%{n}, oldest first):"
+  pool_empty: "(empty)"
+  missing: "<missing object>"
+  unrecorded_label: "unrecorded changes:"
+  n_added: "%{n} added"
+  n_deleted: "%{n} deleted"
+  n_updated: "%{n} updated"
+  clean: "unrecorded changes: none (working tree matches head)"
+  no_compose: "no current compose"
+  pending_none: "pending step: none"
+
+step:
+  pending_label: "pending step"
+  kind_lift: "lift reorder"
+  kind_pop: "pop"
+  kind_compact: "compact"
+  kind_merge: "merge"
+  operations: "operations:"
+  message: "message:"
+  result: "result compose:"
+  swap_hint: "edit the swap files to remove conflict markers, then run `poc --commit`; discard with `poc --cancel`"
+  conflict_created: "conflict cannot be resolved automatically; a pending step was left (storage and working tree untouched)"
+  err_none: "no pending step"
+  err_pending: "a pending step exists; commit with `poc --commit` or discard with `poc --cancel`"
+  err_guard_moved: "pending step state changed (head of \"%{name}\" moved); run `poc --cancel` and retry"
+  err_unknown_kind: "unknown step kind: %{kind}"
+  committed: "step committed; swap files cleaned up"
+  cancelled: "step discarded (%{kind}); storage and working tree untouched"
+
+log:
+  history_header: "history of \"%{name}\" (oldest first):"
+  empty: "history is empty"
+  none: "no events recorded for this compose"
+  kind_init: "init"
+  kind_new_stack: "new-stack"
+  kind_push: "push"
+  kind_amend: "amend"
+  kind_compact: "compact"
+  kind_pop: "pop"
+  kind_merge: "merge"
+  kind_remove: "remove"
+  kind_destroy: "destroy"
+  kind_restore: "restore"
+  kind_purge: "purge"
+
+diff:
+  none: "(no differences)"
+  binary: "(binary)"
+  binary_full: "(binary file: stored as a whole, no line-level diff)"
+
+merge:
+  conflict_summary: "merge conflict in files: %{paths}"
+  binary_conflict: "binary conflict (cannot be resolved via steps): %{paths}"
+
+record:
+  created: "created operation %{id} \"%{msg}\""
+
+stack:
+  head_unchanged: "head unchanged (%{id})"
+  head_moved: "head %{from} -> %{to} (working tree updated)"
+  pooled: "pooled: %{ids}"
+  nothing_pooled: "nothing pooled"
+  lifted: "lifted %{ids} to the top of \"%{name}\""
+  applied: "applied %{ids} onto \"%{name}\""
+  popped: "popped %{ids} off \"%{name}\""
+  compacted: "compacted %{ids} into %{id} \"%{msg}\" (%{mode})"
+  mode_inplace: "in place"
+  mode_gathered: "gathered"
+  composite: "created composite %{id} \"%{msg}\" in the free pool"
+  new_ops: "new operations: %{ids}"
+  head_only: "head %{id}"
+
+amend:
+  rewrote: "rewrote the top operation of \"%{name}\": %{id} \"%{msg}\""
+
+cmp:
+  switched: "switched to compose \"%{name}\" (head %{id})"
+  already: "already on compose \"%{name}\""
+  created: "created compose \"%{name}\" and switched to it (%{detail})"
+  merged: "merged %{names} into new compose \"%{name}\""
+  merge_hint: "the source composes are kept; view with `poc show %{name}`, switch with `poc cmp %{name}`"
+
+dryrun:
+  record: "dry run: would create operation %{id} \"%{msg}\" on compose \"%{name}\" (nothing written)"
+  amend: "dry run: would rewrite the top operation of \"%{name}\": %{id} \"%{msg}\" (nothing written)"
+  lift: "dry run: would lift %{ids} (new operations: %{n}); head %{from} -> %{to} (nothing written)"
+  pop: "dry run: would pop %{ids} into the free pool; head %{from} -> %{to} (nothing written)"
+  compact_inplace: "dry run: would compact %{ids} into %{id} \"%{msg}\" (in place); head unchanged (%{head}) (nothing written)"
+  compact_gather: "dry run: would compact %{ids} into %{id} \"%{msg}\" (gathered); head unchanged (%{head}) (nothing written)"
+  compact_pool: "dry run: would compose %{ids} into %{id} \"%{msg}\" in the free pool; stack untouched (nothing written)"
+  merge: "dry run: would merge %{names} into new compose \"%{name}\"; head %{id} (nothing written)"
+  new: "dry run: would create compose \"%{name}\" and switch to it (%{detail}); head %{id} (nothing written)"
+
+error:
+  id_prefix_short: "operation id prefix must be at least 4 hex characters"
+  op_not_found: "operation not found: %{id}"
+  op_ambiguous: "ambiguous operation id prefix %{id}: %{list}"
+  compose_not_found: "compose not found: %{name}"
+  no_current_create: "no current compose (it was removed); create one with `poc cmp -N <name>`"
+  no_current_log: "no current compose: use `poc log <name>` or `poc log -a`"
+  dirty_record: "working tree is not clean; record the changes first with `poc opt -M`"
+  dirty_switch: "working tree is not clean; record the changes first with `poc opt -M` before switching"
+  empty_message: "message must not be empty"
+  message_cancelled: "empty message; recording cancelled"
+  step_no_editor: "`-s` mode opens no editor: pass the message with `-M`"
+  no_changes: "nothing to record (working tree matches head)"
+  amend_no_ids: "`--amend` rewrites the top operation; it takes no ids"
+  amend_flags: "`--amend` cannot be combined with `-f`/`-c`"
+  free_compact: "`-f` and `-c` cannot be used together"
+  ids_required: "`-f`/`-c` require operation ids"
+  lift_no_include: "`-i` does not apply to lifting"
+  lift_no_message: "`-M` does not apply to lifting"
+  pop_no_include: "`-i` does not apply to popping"
+  pop_no_message: "`-M` does not apply to popping"
+  compact_no_include: "`-i` does not apply to compacting"
+  compact_need_two: "compacting requires at least two distinct operations"
+  stack_empty: "the stack is empty; nothing to pop"
+  stack_empty_amend: "the stack is empty; nothing to amend"
+  pop_not_on_stack: "operation %{id} is not on compose \"%{name}\" (pool operations need no popping; other-stack operations cannot be popped across)"
+  lift_missing: "operation is not on the current stack"
+  lift_noop: "this operation's change is already contained in the current head (lift would be empty)"
+  fork_needs_new: "`--fork` must be used with `-N` (optionally with an op-id)"
+  fork_no_compact: "`--fork` cannot be combined with `-c`"
+  new_no_names: "`-N` cannot be combined with compose names"
+  switch_one: "switching takes exactly one compose name (merging uses -c)"
+  merge_min_two: "merging requires at least two compose names"
+  cmp_usage: "poc cmp <name> switches; poc cmp -N <name> [--fork [op-id]] creates; poc cmp <a> <b> -c merges"
+  fork_not_on_stack: "operation %{id} is not on the current stack \"%{name}\" (--fork <op-id> only accepts operations on it)"
+  no_common_ancestor: "no common ancestor snapshot between \"%{a}\" and \"%{b}\"; cannot merge"
+  bad_compose_name: "invalid compose name: %{name}"
+  compose_exists: "compose already exists: %{name}"
+  show_exclusive: "show <id> cannot be combined with -c/-o"
+  log_all_name: "`-a` cannot be combined with a compose name"
+  diff_pair: "diff requires both ids (a and b)"
+  unknown_global: "unknown global flag `%{flag}` (global flags go before the command word; command-local flags go after it)"
+  bad_glob: "invalid glob: %{e}"
+  data_origs: "compose slot data inconsistent (origs/ops length mismatch)"
+  data_missing_op: "stack op object missing (inconsistent data)"
+  data_missing_tree: "tree missing (inconsistent data)"
+  data_missing_head: "head tree missing (inconsistent data)"
+
+fork:
+  detail_new: "new history, base = head of \"%{name}\""
+  detail_fork: "forked from \"%{name}\" (stack top, whole stack, original untouched)"
+  detail_prefix: "forked from \"%{name}\" at %{opid} (%{n} operations prefix, original untouched)"
+
+dp:
+  not_enabled: "danger mode is not enabled: run `dpoc enable` (interactive confirmation) first"
+  not_tty: "dpoc danger verbs must run in an interactive terminal (non-TTY refused)"
+  confirm_prompt: "confirm: type `%{expected}`"
+  confirm_mismatch: "confirmation mismatch; cancelled"
+  enable_prompt: "dpoc enable: allows physical destruction. Destruction goes to the attic first (restorable); attic-purge is irreversible."
+  enabled: "danger mode enabled (this project)."
+  disabled: "danger mode disabled."
+  verb_denied: "permission: %{verb} is denied by dpoc.conf"
+  already_attic: "already in the attic, skipped: %{id}"
+  destroy_on_stack: "operation %{id} is on a compose stack: destroying stack members requires rebuilding the layers above; run `dpoc compose-remove` first"
+  destroyed: "moved to attic: %{id}  \"%{msg}\""
+  removed: "removed compose \"%{name}\"; stack members moved to the free pool"
+  compose_destroyed: "destroyed compose \"%{name}\"; members moved to the attic"
+  not_in_attic: "not in the attic: %{id}"
+  restored: "restored from attic to the free pool: %{id}  \"%{msg}\""
+  purge_not_attic: "%{id} is not in the attic (only attic objects can be purged)"
+  purged: "permanently deleted: %{id} (log line remains)"
+  no_composes: "the project has no compose left; create one with `poc cmp -N`"
+  current_switched: "current compose switched to \"%{name}\""
+  current_dirty: "note: the working tree does not match the head of the new current compose \"%{name}\"; inspect with `poc status`, then switch with `poc cmp <name>` after resolving"
+  unknown_verb: "unknown dpoc verb: %{verb}"
+  verify_ok: "verify passed: %{n} operations, all references intact, audit and log continuous"
+  verify_hash: "op hash mismatch: %{id}"
+  verify_missing_tree: "op %{id} references a missing tree"
+  verify_compose_tree: "compose %{name} references a missing tree"
+  verify_compose_op: "compose %{name} references a missing op"
+  verify_audit_gap: "audit log is not continuous"
+  verify_log_gap: "operation log is not continuous"
+
+cpoc:
+  deferred: "cpoc: link collaboration is deferred to 1.x (placeholder binary). Design inputs: docs/DESIGN.md §1.5 / §4.5."
+
+help:
+  after: |-
+    Global options (place them before the command word):
+      -o, --gc         collect garbage first
+      -s, --step       never open an editor or UI; leave a pending step instead
+      -c, --commit     commit the pending step, then run the command
+      -q, --cancel     discard the pending step
+      -p, --no-pager   disable the embedded pager
+      --dry-run        rebuild in memory and report, without writing anything
+      --quiet          print only result ids and errors
+      --verbose        print file lists and step-by-step details
+      -y, --yes        (reserved; no effect in 1.0)
+
+    Flags placed after the command word belong to that command (`-c` = compact after `opt`, merge after `cmp`).

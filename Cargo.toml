@@ -2,7 +2,13 @@
 name = "poc"
 version = "0.1.0"
 edition = "2024"
-description = "P.O.C. — Project·Operation·Compose 用户态本地版本控制工具"
+rust-version = "1.90"
+description = "P.O.C. (Project · Operation · Compose) — a userspace, fully local version control tool: single binary, no network, no daemon, no staging area"
+license = "MIT"
+readme = "README.md"
+keywords = ["vcs", "version-control", "cli"]
+categories = ["command-line-utilities", "development-tools"]
+# Add `repository = "https://github.com/<owner>/poc"` once the GitHub URL is set.
 
 [lib]
 name = "poc_lib"
@@ -35,9 +41,15 @@ gix-hash = { version = "0.27.0", features = ["sha1"] }
 globset = "0.4.20"
 ignore = "0.4.33"
 jiff = "0.2.37"
+minus = { version = "5.8.0", features = ["static_output"] }
 redb = "4.3.0"
-similar = "3.2.0"
+rust-i18n = "3"
+similar = { version = "3.2.0", features = ["bytes"] }
 thiserror = "2.0.21"
 
 [target."cfg(unix)".dependencies]
 libc = "0.2.189"
+
+[dev-dependencies]
+proptest = "1.4.0"
+tempfile = "3.10.0"

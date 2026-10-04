@@ -3,6 +3,7 @@
 
 use std::process::ExitCode;
 
+use anstream::{eprintln, println};
 use clap::{CommandFactory, Parser};
 
 use crate::cmds::{self, Ctx};
@@ -76,9 +77,9 @@ fn split_globals(args: &[String]) -> Res<(Globals, usize)> {
             if parse_global(tok, &mut g) {
                 i += 1;
             } else {
-                return Err(PocError::Usage(format!(
-                    "未知全局旗标 `{tok}`（全局旗标必须位于命令词之前；命令局部旗标写在命令词之后）"
-                )));
+                return Err(PocError::Usage(
+                    rust_i18n::t!("error.unknown_global", flag = tok).to_string(),
+                ));
             }
         } else {
             break;
@@ -91,7 +92,7 @@ fn split_globals(args: &[String]) -> Res<(Globals, usize)> {
 #[command(
     name = "poc",
     version,
-    about = "P.O.C. — Project·Operation·Compose（安全本地操作）"
+    about = "P.O.C. — Project·Operation·Compose (safe local operations)"
 )]
 struct PocCli {
     #[command(subcommand)]
@@ -100,73 +101,82 @@ struct PocCli {
 
 #[derive(clap::Subcommand)]
 enum PocCmd {
-    /// 创建/初始化 Project
+    /// Create or initialize a project
     Proj {
-        /// 新建同名目录并初始化
+        /// Create a same-named directory here and initialize it
         #[arg(short = 'N', long = "new")]
         new_name: Option<String>,
-        /// 在指定目录初始化
+        /// Initialize at the given path
         path: Option<String>,
     },
-    /// 创建 Operation（-M/-i）或操控既有 opt（ids + -f/-c）
+    /// Record a new operation (-M/-i) or manipulate existing ones (ids with -f pop / -c compact)
     Opt {
-        /// operation ids（缺省 = 创建模式）
+        /// Operation ids (omit to record a new operation)
         ids: Vec<String>,
-        /// 操作消息（缺省打开编辑器）
+        /// Operation message (opens an editor when omitted)
         #[arg(short = 'M', long = "message")]
         message: Option<String>,
-        /// 文件 glob 限定
+        /// Include only files matching this glob
         #[arg(short = 'i', long = "include")]
         include: Option<String>,
-        /// 弹出到自由池
+        /// Pop to the free pool
         #[arg(short = 'f', long = "free")]
         free: bool,
-        /// 压缩为一个
+        /// Compact into one operation (head unchanged; originals pooled)
         #[arg(short = 'c', long = "compact")]
         compact: bool,
-        /// 改写栈顶
+        /// Rewrite the top operation
         #[arg(long = "amend")]
         amend: bool,
     },
-    /// 状态总览 / 单 opt 详情
+    /// Overview or single operation detail
     Show {
-        /// 列出所有 Compose
+        /// List all composes
         #[arg(short = 'c', long = "composes")]
         composes: bool,
-        /// 列出所有 Operation
+        /// List all operations
         #[arg(short = 'o', long = "operations")]
         operations: bool,
-        /// 单 opt id
+        /// Single operation id
         id: Option<String>,
     },
-    /// Compose 切换 / 新建 / 合并
+    /// Compose switching / creation / merge
     Cmp {
-        /// compose names（恰一个 = 切换；多个 + -c = 合并）
+        /// Compose names (exactly one = switch; several with -c = merge)
         names: Vec<String>,
-        /// 合并多个 Compose
+        /// Merge composes into a new one (copy)
         #[arg(short = 'c', long = "compact")]
         compact: bool,
-        /// 新建 Compose
+        /// Create a new compose
         #[arg(short = 'N', long = "new")]
         new: Option<String>,
-        /// 新建时复刻当前整栈
-        #[arg(long = "fork")]
-        fork: bool,
+        /// Fork: with no id, copies the whole stack from the top; `--fork <op-id>` copies the prefix up to that operation
+        #[arg(long = "fork", num_args(0..=1), default_missing_value = "")]
+        fork: Option<String>,
     },
-    /// 自由池 / 未记录变更 / 步骤
+    /// Per-compose operation history (append-only; deleting a stack keeps its history)
+    Log {
+        /// Compose name (default: current stack; deleted stacks remain queryable)
+        name: Option<String>,
+        /// Show all composes, grouped
+        #[arg(short = 'a', long = "all")]
+        all: bool,
+    },
+    /// Free pool / unrecorded changes / pending step
     Status,
-    /// 工作区/快照差异
+    /// Working tree / snapshot differences
     Diff {
-        /// 一个 opt id = 该 opt 的差异；两个 = 两快照差异
+        /// One operation id = that operation's diff; two ids = snapshot diff
         a: Option<String>,
+        /// Second operation id
         b: Option<String>,
-        /// 只输出统计
+        /// Print per-file stats only
         #[arg(long = "stat")]
         stat: bool,
     },
-    /// 用户信息等本仓库配置
+    /// Repository-level configuration (user identity)
     Config {
-        /// 删除配置键
+        /// Remove a configuration key
         #[arg(long)]
         unset: bool,
         key: Option<String>,
@@ -178,33 +188,59 @@ fn argv() -> Vec<String> {
     std::env::args().skip(1).collect()
 }
 
+/// help 展示用命令：程序名取 argv[0] 基名（fpoc/dpoc 入口下不再显示 poc），
+/// 并追加全局旗标说明（clap 不知道手工预剥离的全局旗标）。
+fn build_cmd() -> clap::Command {
+    let bin = std::env::args()
+        .next()
+        .map(|a| {
+            std::path::Path::new(&a)
+                .file_name()
+                .map(|n| n.to_string_lossy().into_owned())
+                .unwrap_or_else(|| "poc".into())
+        })
+        .unwrap_or_else(|| "poc".into());
+    let mut cmd = PocCli::command();
+    cmd.set_bin_name(bin);
+    let cmd = cmd.after_help(rust_i18n::t!("help.after").to_string());
+    cmd
+}
+
 fn wrap(r: Res<()>) -> ExitCode {
     match r {
         Ok(()) => ExitCode::SUCCESS,
         Err(e @ PocError::Usage(_)) => {
-            eprintln!("用法错误：{e}");
+            eprintln!(
+                "{}: {e}",
+                crate::theme::paint(crate::theme::Token::Usage, crate::i18n::usage_prefix())
+            );
             ExitCode::from(2)
         }
         Err(e) => {
-            eprintln!("错误：{e}");
+            eprintln!(
+                "{}: {e}",
+                crate::theme::paint(crate::theme::Token::Error, crate::i18n::error_prefix())
+            );
             ExitCode::from(1)
         }
     }
 }
 
 pub fn poc_main() -> ExitCode {
+    crate::i18n::init();
     crate::ui::restore_sigpipe();
     wrap(poc_run(&argv()))
 }
 
 pub fn dpoc_main() -> ExitCode {
+    crate::i18n::init();
     crate::ui::restore_sigpipe();
     wrap(crate::dcmds::run(&argv()))
 }
 
 pub fn cpoc_main() -> ExitCode {
     crate::ui::restore_sigpipe();
-    println!("cpoc：链接协作已推迟至 1.x（本二进制为占位）。设计输入见 docs/DESIGN.md §1.5 / §4.5。");
+    println!("{}", rust_i18n::t!("cpoc.deferred"));
     ExitCode::SUCCESS
 }
 
@@ -222,12 +258,22 @@ const DPOC_VERBS: &[&str] = &[
 ];
 
 pub fn fpoc_main() -> ExitCode {
+    crate::i18n::init();
     crate::ui::restore_sigpipe();
     let args = argv();
+    // 顶层 help/version 直接交给 poc_run 的拦截（fpoc 下程序名随 argv[0]）
+    if let Some(first) = args.first().map(|s| s.as_str()) {
+        if matches!(first, "-h" | "--help" | "-V" | "--version") || (first == "help" && args.len() == 1) {
+            return wrap(poc_run(&args));
+        }
+    }
     let (_, n) = match split_globals(&args) {
         Ok(x) => x,
         Err(e) => {
-            eprintln!("用法错误：{e}");
+            eprintln!(
+                "{}: {e}",
+                crate::theme::paint(crate::theme::Token::Usage, crate::i18n::usage_prefix())
+            );
             return ExitCode::from(2);
         }
     };
@@ -240,6 +286,25 @@ pub fn fpoc_main() -> ExitCode {
 }
 
 fn poc_run(args: &[String]) -> Res<()> {
+    // 顶层 help / version 拦截必须在全局旗标剥离之前（-h 不是全局旗标，
+    // 否则 split_globals 会先报"未知全局旗标"）；子命令级 help 仍交给 clap。
+    match args.first().map(|s| s.as_str()) {
+        Some("-h") | Some("--help") => {
+            let _ = build_cmd().print_help();
+            return Ok(());
+        }
+        Some("-V") | Some("--version") => {
+            let v = build_cmd().render_version();
+            println!("{v}");
+            return Ok(());
+        }
+        Some("help") if args.len() == 1 => {
+            let _ = build_cmd().print_help();
+            return Ok(());
+        }
+        _ => {}
+    }
+
     let (g, n) = split_globals(args)?;
     let rest = &args[n..];
 
@@ -248,21 +313,26 @@ fn poc_run(args: &[String]) -> Res<()> {
         if g.gc {
             let ctx = Ctx::open(g)?;
             let (b, t, o) = ctx.store.gc_run()?;
-            println!("gc 完成：清理 blob {b} / tree {t} / op {o}");
+            println!("{}", rust_i18n::t!("gc.done", blobs = b, trees = t, ops = o));
             return Ok(());
         }
-        if g.commit || g.cancel {
-            return Err(PocError::Msg("无待办步骤".to_string()));
+        if g.commit {
+            let ctx = Ctx::open(g)?;
+            return cmds::step_commit(&ctx);
+        }
+        if g.cancel {
+            let ctx = Ctx::open(g)?;
+            return cmds::step_cancel(&ctx);
         }
         if g.step {
             let ctx = Ctx::open(g)?;
-            match ctx.store.meta_get("step")? {
-                Some(s) => println!("步骤: {s}"),
-                None => println!("步骤: 无"),
+            match crate::step::load(&ctx.store)? {
+                Some(s) => anstream::print!("{}", crate::render::step_section(&s, &ctx.root)),
+                None => println!("{}", rust_i18n::t!("status.pending_none")),
             }
             return Ok(());
         }
-        let _ = PocCli::command().print_help();
+        let _ = build_cmd().print_help();
         return Ok(());
     }
 
@@ -279,7 +349,14 @@ fn poc_run(args: &[String]) -> Res<()> {
     let ctx = Ctx::open(g)?;
     if g.gc {
         let (b, t, o) = ctx.store.gc_run()?;
-        println!("gc 完成：清理 blob {b} / tree {t} / op {o}");
+        println!("{}", rust_i18n::t!("gc.done", blobs = b, trees = t, ops = o));
+    }
+    // 带命令的 --commit/--cancel：先处理步骤，再执行命令（"提交步骤结果，进入下一步"）
+    if g.commit {
+        cmds::step_commit(&ctx)?;
+    }
+    if g.cancel {
+        cmds::step_cancel(&ctx)?;
     }
 
     let cli = PocCli::try_parse_from(std::iter::once("poc".to_string()).chain(rest.iter().cloned()))
@@ -316,6 +393,7 @@ fn poc_run(args: &[String]) -> Res<()> {
             fork,
         } => cmds::cmd_cmp(&ctx, names, compact, new, fork),
         PocCmd::Status => cmds::cmd_status(&ctx),
+        PocCmd::Log { name, all } => cmds::cmd_log(&ctx, name, all),
         PocCmd::Diff { a, b, stat } => cmds::cmd_diff(&ctx, a, b, stat),
         PocCmd::Config { unset, key, value } => cmds::cmd_config(&ctx, unset, key, value),
     }
